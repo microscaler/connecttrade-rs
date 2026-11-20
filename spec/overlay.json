@@ -1,0 +1,120 @@
+{
+  "_comment": "Our additions to Connect Trade's spec, applied by `cargo xtask codegen`. spec/openapi.json is never edited; everything we add or correct is here, with the reason.",
+  "operation_ids": {
+    "POST /auth/tokens/platform": "create_platform_token",
+    "POST /auth/tokens/user": "create_user_token",
+    "GET /users": "list_users",
+    "POST /users": "create_user",
+    "DELETE /users": "delete_user",
+    "POST /users/{user_id}/rotate-secret": "rotate_user_secret",
+    "GET /connections": "list_connections",
+    "POST /connections": "create_connection",
+    "GET /connections/{connection_id}": "get_connection",
+    "DELETE /connections/{connection_id}": "delete_connection",
+    "POST /connections/{connection_id}/repair": "repair_connection",
+    "GET /platform/connections": "list_platform_connections",
+    "GET /accounts": "list_accounts",
+    "GET /accounts/{account_id}": "get_account",
+    "GET /balances": "list_balances",
+    "POST /orders": "create_order",
+    "GET /orders": "list_orders",
+    "GET /accounts/{account_id}/orders/{order_id}": "get_order",
+    "DELETE /accounts/{account_id}/orders/{order_id}": "cancel_order",
+    "PATCH /accounts/{account_id}/orders/{order_id}": "replace_order",
+    "GET /accounts/{account_id}/order-groups/{order_group_id}": "get_order_group",
+    "DELETE /accounts/{account_id}/order-groups/{order_group_id}": "cancel_order_group",
+    "GET /positions": "list_positions",
+    "GET /transactions": "list_transactions"
+  },
+  "parameter_location_fixes": {
+    "_comment": "DELETE /users declares user_id as a path parameter, but the path has no {user_id}. Sent as a query parameter until Connect Trade says otherwise (question raised).",
+    "DELETE /users": {
+      "user_id": "query"
+    }
+  },
+  "error_schemas": {
+    "_comment": "Four error schemas in the spec, all carrying `message`; one Rust type.",
+    "names": [
+      "ErrorResponse",
+      "schemas-ErrorResponse",
+      "components-schemas-ErrorResponse",
+      "positions-api_components-schemas-ErrorResponse"
+    ]
+  },
+  "inline_object_names": {
+    "_comment": "Arrays of inline objects get a name. Where the spec gives no item schema at all, the item schema of the same field elsewhere in the spec is used (fills and legs are the same object everywhere in the docs' examples).",
+    "ConnectionResponse.accounts": "ConnectionAccount",
+    "OrderCreateRequest.legs": "OrderLegRequest",
+    "OrderResponse.fills": "Fill",
+    "OrderResponse.legs": "OrderLeg",
+    "OrderCreateResponse.fills": "Fill",
+    "OrderCreateResponse.legs": "OrderLeg",
+    "OrderLeg.fills": "Fill"
+  },
+  "enum_names": {
+    "_comment": "Inline enums are named after their field and merged across schemas (every enum keeps a catch-all for values the spec does not list). These keep a narrower set apart.",
+    "ComplexOrderParameters.order_class": "ComplexOrderClass",
+    "GET /orders status": "OrderStatusFilter",
+    "GET /orders side": "Side",
+    "OrderLegRequest.action": "LegAction",
+    "OrderLeg.action": "LegAction",
+    "UserAccessTokenRequest.scopes": "TokenScope"
+  },
+  "response_required": {
+    "_comment": "Response fields are Option unless listed here: the spec's `required` lists do not match the docs' own examples (legs and price_effect are null in them), and a decode failure after an order was placed is worse than a missing field. These are the identifiers every response of that kind must carry.",
+    "OrderResponse": [
+      "order_id",
+      "account_id",
+      "cl_order_id"
+    ],
+    "OrderCreateResponse": [
+      "order_id",
+      "account_id",
+      "cl_order_id"
+    ],
+    "OrderGroup": [
+      "order_group_id",
+      "account_id"
+    ],
+    "OrderGroupMember": [],
+    "AccountResponse": [
+      "account_id",
+      "connection_id"
+    ],
+    "ConnectionResponse": [
+      "connection_id"
+    ],
+    "UserCreateResponse": [
+      "user_id",
+      "user_secret"
+    ],
+    "UserSecretRotateResponse": [
+      "user_id",
+      "user_secret"
+    ],
+    "PlatformAccessTokenResponse": [
+      "access_token"
+    ],
+    "UserAccessTokenResponse": [
+      "access_token"
+    ],
+    "ConnectionCreateResponse": [
+      "connection_request_url"
+    ],
+    "TransactionResponse": [
+      "transaction_id"
+    ]
+  },
+  "request_nullable": {
+    "_comment": "Request fields the spec marks required and non-null but the docs send as null. They become Option and an unset value is sent as an explicit null, as in the docs. OrderCreateRequest.symbol: multi-leg orders set it to null (\"Set to null for multi-leg orders\").",
+    "OrderCreateRequest": [
+      "symbol"
+    ]
+  },
+  "request_optional": {
+    "_comment": "Request fields the spec marks required that the docs leave out. They become Option and are left out when unset. OrderCreateRequest.side: multi-leg orders omit it (\"Multileg: the order-level side field is ignored\").",
+    "OrderCreateRequest": [
+      "side"
+    ]
+  }
+}

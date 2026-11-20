@@ -1,0 +1,34 @@
+[package]
+name = "ct-mock"
+version = "0.1.0"
+description = "Stateful mock of the Connect Trade API (REST and order stream) for testing clients without a broker account"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "ct_mock"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ct-mock"
+path = "src/main.rs"
+
+[dependencies]
+connecttrade = { path = "../connecttrade", default-features = false }
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+
+[dev-dependencies]
+connecttrade = { path = "../connecttrade" }
+jsonschema = { version = "0.33", default-features = false }
+ureq = { version = "3", default-features = false }

@@ -1,0 +1,940 @@
+# Connect Trade — Complete AI-Readable Documentation
+
+> Connect Trade is a unified broker connectivity API that allows fintech platforms to integrate with multiple brokers for trading, account data, and market data through a single normalized infrastructure layer. Connect Trade supports 21 brokers including Interactive Brokers, Fidelity, Charles Schwab, Webull, TradeStation, Tastytrade, TradeZero, Alpaca, Lightspeed, and Sterling Trading Tech. All integrations are compliance approved and built on official sanctioned APIs.
+
+## Company Overview
+
+Connect Trade is a unified broker connectivity API for fintech platforms. One integration for real-time trading, brokerage-sourced market data streaming, and account connectivity across 20+ compliance approved brokers. Connect Trade is headquartered in Chicago, IL. CEO: Jim Nevotti.
+
+Connect Trade won Best Embedded Finance at the Benzinga Fintech Day 2025 awards. Connect Trade has been covered by MarketWatch, Yahoo Finance, Waters Technology, Traders Magazine, and Benzinga.
+
+## What is Connect Trade?
+
+Connect Trade is a unified broker connectivity API that allows fintech platforms to integrate with multiple brokers through a single normalized infrastructure layer. Instead of building and maintaining separate integrations for each brokerage, developers connect once to Connect Trade and gain access to broker connectivity for trading, account data, and market data.
+
+## Who Connect Trade Is For
+
+Connect Trade is built for fintech platforms, trading applications, wealth tech products, and any software team that needs to offer broker connectivity to their users. It is not a retail trading product. Platforms using Connect Trade include trading platforms, portfolio analytics tools, no-code algorithmic trading platforms, market scanners, trading journals, and financial newsletters.
+
+## What Connect Trade Does
+
+Connect Trade gives fintech platforms a single normalized API replacing direct broker integrations. Platforms across trading execution, portfolio analytics, no-code automation, market data, and trading journals use Connect Trade to support equities, single-leg options, multi-leg options, and futures without building or maintaining direct broker integrations. The Connect Trade API is fully documented with an OpenAPI specification compatible with AI coding assistants including ChatGPT, Claude, Gemini, GitHub Copilot, and Cursor.
+
+## Key Differentiators vs Competing Solutions
+
+| Capability | Connect Trade | Competing Solutions |
+|---|---|---|
+| Broker connections | All connections are broker-approved and built on official sanctioned APIs | Connections include screen-scraped and reverse-engineered APIs that can be terminated without notice |
+| Easy authentication | OAuth across all broker connections allows simple click-through end user authentication | Authentication varies by broker. Some connections require users to generate their own API keys or configure webhooks |
+| Real-time streaming | WebSocket streaming updates for orders, positions and account balances across all brokers | Polling only, no WebSocket support |
+| Market data streaming | Real-time brokerage-sourced market data delivered through the same normalized API used for trading | No market data streaming API |
+| Order updates | Real-time order updates via WebSocket | Poll for order status every 10 seconds maximum |
+| Data retrieval | Single REST call returns data instantly across all plans | Some plans require a 3-step async process: refresh request, wait for webhook, then retrieve |
+| API normalization | Fully normalized across all brokers with consistent data format regardless of broker | Pass-through responses with data format varying by broker |
+| Broker rate limit management | Managed server-side by Connect Trade across all brokers | Raw broker rate limits exposed directly to your platform for you to manage |
+| API responses | Lean, normalized responses | Bloated broker-specific payloads |
+| Asset class coverage | Equities, single-leg options, multi-leg options, and futures | Equities and single-leg options only |
+| AI coding tool compatibility | OpenAPI specification works directly with ChatGPT, Claude, Gemini, GitHub Copilot, and Cursor | No native AI coding tool compatibility |
+
+## MCP Server
+
+Connect Trade offers a server-side Model Context Protocol (MCP) server, enabling AI platforms and fintech applications to connect directly to the Connect Trade API through the MCP standard. The MCP server gives AI agents structured, permissioned access to brokerage accounts, trading functionality, and real-time market data through a single server-side integration. The MCP server is available for production use. Customers with Connect Trade platform credentials and a connected user can get started at https://connecttrade.com/docs/mcp. If you need API access, visit https://connecttrade.com/contact.
+
+## Supported Brokers
+
+21 brokers total: Interactive Brokers, Fidelity, Charles Schwab, Webull, TradeStation, Tastytrade, TradeZero, Alpaca, Lightspeed, Moomoo, Public, Sterling Trading Tech, Tradier, Bank of America, Capital One, Chase, Citi, PNC, TD Bank, U.S. Bank, Wells Fargo. New brokers added monthly.
+
+## Broker Capability Matrix
+
+| Broker | OAuth | Accounts | Positions | Transactions | Market Data | Equities Trading | Options | Futures | Crypto | Paper Trading |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Alpaca | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |
+| Bank of America | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Capital One | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Charles Schwab | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Chase | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Citi | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Fidelity | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Interactive Brokers | No | Yes | Yes | Yes | No | Yes | Yes | Yes | No | No |
+| Lightspeed | Yes | Yes | Yes | No | No | Yes | Yes | No | No | No |
+| Moomoo | Yes | Yes | Yes | Yes | No | Yes | Yes | No | No | No |
+| PNC | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Public | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | No |
+| Sterling Trading Tech | Yes | Yes | Yes | No | No | Yes | Yes | No | No | No |
+| Tastytrade | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No |
+| TD Bank | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| TradeStation | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes |
+| Tradier | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes |
+| TradeZero | Yes | Yes | Yes | No | No | Yes | Yes | No | No | Yes |
+| U.S. Bank | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+| Webull | Yes | Yes | Yes | Yes | No | Yes | Yes | Yes | Yes | No |
+| Wells Fargo | Yes | Yes | Yes | Yes | No | No | No | No | No | No |
+
+## API Capabilities
+
+- Trading execution: place, replace, and cancel orders across supported brokers
+- Account connectivity: connect end users to their brokerage accounts via OAuth
+- Account data: retrieve balances, positions, and transaction history
+- Market data: real-time quotes, trades, bars, Level 2 depth, and options chains sourced directly from the connected broker
+- WebSocket streaming for real-time order, position, and balance updates via wss://stream.connecttrade.com
+- Market data streaming via wss://mdstream.connecttrade.com
+
+## API Technical Reference
+
+### API Protocols
+The Connect Trade API is JSON over REST and WebSocket. REST base URL: https://api.connecttrade.com. Streaming Broker API: wss://stream.connecttrade.com. Streaming Market Data API: wss://mdstream.connecttrade.com.
+
+### Authentication
+Authenticate REST requests with credential headers. Platform endpoints require client-id and client-secret. User endpoints additionally require user-id and user-secret. Each endpoint lists its required headers under Authorizations. Keep secrets on your server, never in a browser or mobile app. Server-to-server integrations do not need access tokens. OAuth is used separately for broker authentication.
+
+### Access Tokens (Optional)
+Use access tokens when a browser or another front end calls Connect Trade directly, without exposing credential secrets. Your backend creates a token with credential headers, passes it to the intended front end, and provides a new token before expiry. The front end sends Authorization: Bearer <token> for REST or access_token for the Streaming Broker API.
+User access tokens act for one user with read and/or trade scopes. Platform access tokens provide privileged multi-user access for trusted admin applications; do not give them to ordinary end-user applications. Server-side integrations can keep using credential headers. These tokens are separate from Streaming Market Data tokens, and each token works only with its own API.
+
+### Order Types
+Market (MKT), Limit (LMT), Stop (STP), Stop-Limit (STPLMT).
+
+### Time in Force
+DAY, GTC, IOC, FOK, OPEN, CLOSE, DAY+, GTC+.
+
+### Order Side
+Equities, futures, and crypto: Send BUY, SELL, or SELL_SHORT. Connect Trade marks the side correctly for whichever broker you're routing to, using your current position to determine open/close intent when needed.
+
+Explicit variants (BUY_TO_OPEN, BUY_TO_CLOSE, BUY_TO_COVER, SELL_TO_OPEN, SELL_TO_CLOSE) are also accepted and passed through as-is.
+
+Options: BUY_TO_OPEN, BUY_TO_CLOSE, SELL_TO_OPEN, SELL_TO_CLOSE.
+
+Multileg: The order-level side field is ignored.
+
+Note: side is not modified on notional orders, or on the equity/crypto leg of an order while a notional order is still open.
+
+### Price Effect
+For new orders, price_effect may be DEBIT or CREDIT. It is required only for certain broker, order-type, and instrument combinations, and is ignored when not required.
+
+### Order Status Values
+pending, working, partially_filled, filled, cancelled, rejected, expired, replaced, pending_cancel, pending_replace. All statuses are normalized across brokers.
+
+### Multi-Leg Options
+Supports 2 to 4 leg strategies including bull call spreads, bear put spreads, long straddles, iron condors, and ratio spreads. Set instrument to MLEG_OPT.
+
+### Symbology
+Equities: NYSE CQS format. Options: OCC OSI format (e.g. TSLA251031C00437500 = TSLA call, Oct 31 2025, $437.50 strike). Crypto: BASE/QUOTE format (e.g. ETH/USDT, ETH/USDC, ETH/USD, ETH/BTC). Futures: use `[ROOT][M][YY]` symbology with a two-digit year (e.g. ESU26, ZNH27, MESZ26). Continuous contracts and spread symbols are not accepted. Connect Trade does not validate futures expirations or per-product broker availability; the broker determines whether a contract is tradable. See https://connecttrade.com/docs#symbology for Connect Trade root symbols.
+
+### Streaming Broker API
+Delivers incremental order, position, and account balance updates through `wss://stream.connecttrade.com`. Authenticate within 30 seconds with client credentials or an `access_token`, never both. Client-credential and platform-token sessions share 10 concurrent sessions per client ID. User-token sessions allow 5 concurrent sessions per user, outside the client-ID cap.
+
+Send `subscribe` for topics (`orders`, `positions`, and/or `balances`). Platform sessions also send `subscribe_user` for each desired user, up to 500 users per session. User-token sessions are locked to their own user and automatically subscribe to that user; no `subscribe_user` is needed. Subscribing another user fails with `subscription_failed`. Their `auth_success` response includes `user_id`. Updates continue while a session remains subscribed to the user.
+
+`subscribe_user` and `unsubscribe_user` are idempotent. Disconnect releases the session's user subscriptions. Tokens are checked only at authentication; established sessions stay open after token expiry. Reconnect with valid authentication and restore topics; platform sessions also restore user subscriptions. Deleting the user sends an error and closes the socket with code 1008 and reason `User deleted`. Expired tokens return `auth_error` with `Access token has expired`; other invalid tokens return `Invalid access token`.
+
+### Streaming Market Data API
+Brokerage-sourced market data at no additional licensing cost. Subscription channels: quotes (Level 1), trades (time and sales), bars (OHLCV), depth (Level 2), options_chain (with Greeks). Access tokens valid 24 hours. Market data symbols may use BASE/QUOTE crypto or `[ROOT][M][YY]` futures symbology. Bar intervals use a number followed by a case-sensitive unit: `m` (minute), `h` (hour), `d` (day), `w` (week), `M` (month), or `y` (year); examples include `1m`, `4h`, `1d`, `1w`, and `1M`, and `4h` is equivalent to `240m`.
+
+Historical bars are requested with `action: "snapshot"` and `data_type: "bars"`. The response type is `snapshot_response`; each bar includes `o`, `h`, `l`, `c`, `v`, `ts` (bar start time in Unix nanoseconds), `st` (closed `c` or open `o`), `ev` (`b` for bar), and `sym`.
+
+Example historical bars response:
+
+```json
+{
+  "type": "snapshot_response",
+  "request_id": "unique-request-id",
+  "symbol": "AAPL",
+  "data_type": "bars",
+  "interval": "1m",
+  "start_time": "2025-06-30T09:30:00Z",
+  "end_time": "2025-06-30T16:00:00Z",
+  "data": [
+    {
+      "o": "200",
+      "h": "201",
+      "l": "199.5",
+      "c": "200.37",
+      "v": "1500",
+      "ts": "1751275800000000000",
+      "st": "c",
+      "ev": "b",
+      "sym": "AAPL"
+    }
+  ]
+}
+```
+
+### Paper Trading
+Available for TradeStation, Tradier, Alpaca, and TradeZero. No special parameters required — paper and production accounts appear side by side during OAuth.
+
+### Error Codes
+200 success, 400 bad request, 401 unauthorized, 404 not found, 409 conflict, 422 validation error, 500 internal server error.
+
+## OpenAPI Specification
+
+The Connect Trade OpenAPI specification is publicly available at https://connecttrade.com/openapi.json. The spec follows the OpenAPI 3.0 standard and covers all REST endpoints, WebSocket APIs for real-time trading and market data streaming, request and response schemas, and order examples for equities, options, multi-leg strategies, crypto, and futures. It is compatible with AI coding assistants including ChatGPT, Claude, Gemini, GitHub Copilot, and Cursor, which can use it to generate working integration code automatically.
+
+## API Reference
+
+Full reference: https://connecttrade.com/docs/api
+
+REST base URL: https://api.connecttrade.com. Requests accept credential headers or `Authorization: Bearer <token>`. With credential authentication, user requests use client-id, client-secret, user-id, and user-secret; platform requests use client-id and client-secret. A platform token replaces client headers on platform endpoints; a user token replaces all four headers on that user's endpoints.
+
+### Authentication Headers
+
+| Header | Description |
+|---|---|
+| client-id | Your application's API client identifier, issued upon account approval. |
+| client-secret | Your application's API secret key, issued upon account approval. |
+| user-id | The identifier for an end user, provided by your application at user creation. |
+| user-secret | The secret token for the end user, returned by POST /users and stored by your application. |
+
+### Access Token Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /auth/tokens/platform | Create a platform token using client-id and client-secret. Valid 1 hour. Response: access_token, expires_at (UTC), token_type (Bearer). |
+| POST | /auth/tokens/user | Create a user token using all four credential headers. Required JSON body: {"scopes": ["read", "trade"]}. Include at least one scope with no duplicates; read accesses user data, trade creates/replaces/cancels orders. Valid 15 minutes. Response: access_token, expires_at, scopes. Invalid scopes return 400. |
+
+Token creation only accepts credential headers, not other tokens. There are no refresh tokens: request a new token before expiry. Multiple tokens may coexist; minting does not invalidate earlier tokens. Deleting a user invalidates their tokens immediately. Rotating a secret prevents token minting with the old secret but already-issued tokens remain valid until expiry. Keep client/user secrets and platform tokens on your server; scoped user tokens may be passed to the corresponding user's client application. These are not Streaming Market Data API tokens.
+
+### Users Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /users | Create a new user. Request body: user_id (string). Response: user_id, user-secret (shown once — store securely). |
+| GET | /users | List all users associated with your platform credentials. |
+| DELETE | /users/{user_id} | Delete a user and all their connections. Requires client-id and client-secret only. |
+
+### Connections Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /connections | Create a brokerage connection. Required fields: user-id, user-secret, type (trade or market_data), redirect_url. Response: authorization_url to display to the user. |
+| GET | /connections | List user connections with optional ACTIVE/BROKEN status filtering. Invalid statuses return 422. BROKEN means credentials are no longer valid; recover with POST /connections/{connection_id}/repair. |
+| POST | /connections/{connection_id}/repair | Create a repair URL for an existing connection using user authentication. Optional body: redirect_url and redirect_on_error_url. Returns 200 with the connection-creation response schema; missing connection returns 404. |
+| GET | /platform/connections | List connections across all users of the authenticated platform. Requires only client-id and client-secret. Optional filters: `status` (`ACTIVE` or `BROKEN`), `limit` (1–1,000; default 100), `next_cursor`, or `prev_cursor` (mutually exclusive). Results are sorted newest first and return `data`, `next_cursor`, and `prev_cursor`; invalid query parameters return 422. |
+| DELETE | /connections/{connection_id} | Delete a brokerage connection and revoke its associated tokens. |
+| GET | /connections/{connection_id}/token | Generate a short-lived access token (24-hour TTL) for the Streaming Market Data API. Only one token is active per connection at a time. |
+
+Example `GET /platform/connections` response:
+
+```json
+{
+  "data": [
+    {
+      "connection_id": "1f99726b-26de-44b8-a634-213b34313344",
+      "user_id": "76873239-50c7-4b1c-bb1f-7dc2c9a3af36",
+      "broker": "ALPACA",
+      "connection_type": "trade",
+      "status": "BROKEN",
+      "accounts": [
+        {
+          "account_id": "e48f7013-55b3-472b-b7c9-c85a0d6154c6",
+          "account_number": "ABC123456"
+        }
+      ],
+      "created_at": "2025-06-27T16:04:36.090000Z",
+      "updated_at": "2025-07-02T09:12:44.518000Z"
+    }
+  ],
+  "next_cursor": "eyJjcmVhdGVkX2F0IjoiMjAyNS0wNi0yN1QxNjowNDozNi4wOTArMDA6MDAiLCJfaWQiOiI2ODVlYmMxNDAwMDAwMDAwMDAwMDAwMDAifQ==",
+  "prev_cursor": null
+}
+```
+
+### Accounts Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /accounts | List all brokerage accounts for a user. Filter by connection_id or broker. Returns account_id, account_number, institution_name, and broker. The account_id is required for most trading and account endpoints. |
+
+### Balances Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /balances | Retrieve cash, buying power, margin, and equity values for connected accounts. Filter by account_id or connection_id. All numeric fields are returned as strings. |
+
+### Positions Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /positions | Retrieve current holdings for connected accounts. Filter by account_id, connection_id, or symbols (comma-separated; examples include equities, OCC options, BASE/QUOTE crypto, and futures). Each position includes symbol, instrument (`STK`, `FUT`, `OPT`, or `CRYPTO`), quantity, last_price, position_average_price, unrealized_pl, daily_pl, total_pl, and system_time; broker_position_id may also be returned. Numeric position values are strings. |
+
+Futures position example (fields follow the PositionResponse schema):
+
+```json
+{
+  "connection_id": "be573d69-eaad-4ed9-b864-645d43eccd24",
+  "account_id": "9a091a87-c499-466c-9793-786d6b71ec93",
+  "user_id": "newuse011",
+  "account_number": "CCC992771",
+  "broker_position_id": "6JZ26",
+  "symbol": "6JZ25",
+  "quantity": "1.000000000",
+  "last_price": "0.006389500",
+  "position_average_price": "0.006389500",
+  "unrealized_pl": "-79868.750000000",
+  "daily_pl": "0",
+  "total_pl": "-79868.750000000",
+  "instrument": "FUT",
+  "system_time": "2025-01-01T12:00:00.000000Z"
+}
+```
+
+### Orders Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /orders | Place an order. Required: account_id, cl_order_id (unique per day, max 36 characters), broker, side, order_tif, symbol. order_type is required except for OCO, where it must be omitted. Optional instrument: `STK`, `FUT`, `OPT`, `MLEG_OPT`, `CRYPTO`. For limit orders: order_limit_price. For stop orders: stop_price. For multi-leg options: instrument = MLEG_OPT, legs array. Complex orders use complex_order_parameters. Orders on a BROKEN connection return 409 Conflict. |
+| GET | /orders | List orders. Filter by account_id, connection_id, broker, symbols, status (`all`, `open`, `closed`, `working`, `partially_filled`, `filled`, `done_for_day`, `cancelled`, `expired`, `pending_cancel`, `pending_replace`, `replaced`, `rejected`, `pending`), side (`BUY`, `SELL`, `SELL_SHORT`, `BUY_TO_OPEN`, `BUY_TO_CLOSE`, `SELL_TO_OPEN`, `SELL_TO_CLOSE`), start_time, or end_time. Pagination: limit (1–500, default 50), next_cursor, prev_cursor. Sort by `entry_time`, `last_modified_time`, or `last_exec_time` using `field:direction`; the default is `entry_time:desc`. |
+| PATCH | /accounts/{account_id}/orders/{order_id} | Modify a simple open order. Required: new_cl_order_id, broker. Optional: order_qty, order_notional, order_limit_price, stop_price. No member of a complex order group can be replaced, including exits; attempts return GROUP_LEG_NOT_REPLACEABLE. Returns 409 Conflict if the account's connection is BROKEN. |
+| DELETE | /accounts/{account_id}/orders/{order_id} | Cancel a simple open order. Group members cannot be cancelled individually: GROUP_LEG_NOT_CANCELLABLE; cancel the group instead. Returns 409 Conflict if the account's connection is BROKEN. |
+| GET | /accounts/{account_id}/order-groups/{order_group_id} | Retrieve a group with its status and member orders. |
+| DELETE | /accounts/{account_id}/order-groups/{order_group_id} | Submit a group cancellation request. Returns 400 for unsupported broker functionality, 404 if missing, 409 for an already-final group or BROKEN connection. |
+
+GET /orders also supports the order_group_id filter.
+
+Account responses from GET /accounts and GET /accounts/{account_id} use historical_data_sync_completed (boolean) to indicate whether historical data synchronization has completed. This replaces historical_data_sync_complete.
+
+For a BROKEN connection, creating, replacing, or cancelling orders returns 409 Conflict until it is repaired with POST /connections/{connection_id}/repair and the user completes broker authentication.
+
+### Repairing Connections
+
+Find broken connections with GET /connections?status=BROKEN or GET /platform/connections?status=BROKEN. Request a repair URL with POST /connections/{connection_id}/repair. The optional body accepts redirect_url and redirect_on_error_url, following connection-creation validation rules. A 200 response means the URL was generated, not that authentication has completed.
+
+The user must authenticate with the same broker and environment and select the same accounts. Success preserves connection_id and accounts, restores ACTIVE status, and redirects to redirect_url with connection_id. Without a redirect URL, the user remains on Connect Trade. Failed repair leaves the connection unchanged and redirects to redirect_on_error_url, or redirect_url as a fallback, with error and error_details query parameters. An account mismatch may return error=connection_repair_failed. To change connected accounts, delete the connection and create a new one.
+
+The `symbols` filters on order and position requests accept comma-separated equities, OCC option symbols, crypto BASE/QUOTE pairs, and futures symbols. For example: `MSFT,AAPL,MSFT251024C00340000,BTC/USD,ESU26`. Encode a slash in crypto symbols as `%2F` when needed; common HTTP clients such as `curl` handle this automatically.
+
+Crypto order example:
+
+```json
+{
+  "account_id": "ABC123",
+  "cl_order_id": "clordid6",
+  "broker": "ALPACA",
+  "side": "BUY",
+  "instrument": "CRYPTO",
+  "order_qty": "0.001",
+  "order_type": "MKT",
+  "order_tif": "GTC",
+  "symbol": "BTC/USD"
+}
+```
+
+Futures order example:
+
+```json
+{
+  "account_id": "ABC123",
+  "cl_order_id": "clordid7",
+  "broker": "TASTYTRADE",
+  "side": "BUY",
+  "instrument": "FUT",
+  "order_qty": "1",
+  "order_type": "LMT",
+  "order_limit_price": "7740.25",
+  "order_tif": "DAY",
+  "symbol": "ESZ26"
+}
+```
+
+### Order Types
+
+| Code | Name | Description |
+|---|---|---|
+| MKT | Market | Executes immediately at the current market price. |
+| LMT | Limit | Executes only at the specified price or better. Requires order_limit_price. |
+| STP | Stop | Becomes a market order when the stop price is reached. Requires stop_price. |
+| STPLMT | Stop-Limit | Becomes a limit order when the stop price is reached. Requires both stop_price and order_limit_price. |
+
+### Complex Orders: Bracket, OTO, and OCO
+
+Use POST /orders with complex_order_parameters. The order_class is separate from order_type (MKT, LMT, STP, STPLMT).
+
+- BRACKET: top-level fields describe the entry; both take_profit and stop_loss are required. When the entry fills, exits are placed on the reverse side. When one exit fills, the other is cancelled.
+- OTO: top-level fields describe the entry; exactly one of take_profit or stop_loss is required. The exit is placed on the reverse side after the entry fills.
+- OCO: no entry; both take_profit and stop_loss are required. Both use the top-level side: SELL protects a long position; BUY protects a short position. When one fills, the other is cancelled. Omit top-level order_type, order_limit_price, and stop_price.
+
+take_profit requires order_limit_price and is a limit order. stop_loss requires stop_price; adding order_limit_price makes it stop-limit. Support depends on broker/instrument: unsupported combinations return 400 with UNSUPPORTED_ORDER_CLASS.
+
+```json
+{
+  "account_id": "ABC123",
+  "cl_order_id": "strat-42",
+  "broker": "TASTYTRADE",
+  "side": "BUY",
+  "instrument": "STK",
+  "symbol": "AAPL",
+  "order_qty": "10",
+  "order_type": "LMT",
+  "order_limit_price": "180.00",
+  "order_tif": "DAY",
+  "complex_order_parameters": {
+    "order_class": "BRACKET",
+    "take_profit": { "order_limit_price": "195.00" },
+    "stop_loss": { "stop_price": "172.00", "order_limit_price": "171.50" }
+  }
+}
+```
+
+REST order responses and brokerage streaming order updates include order_class, order_group_id, group_role, and parent_order_id. Simple orders have order_class SIMPLE and null group fields. Parent IDs are null for entry and OCO orders. Group roles: ENTRY, TAKE_PROFIT, STOP_LOSS, OTHER. A complex create response also includes order_group with its member orders.
+
+Returned order classes also allow OTHER. Group response classes are BRACKET, OTO, OCO, OTHER, while complex creation accepts only BRACKET, OTO, OCO. Group members are returned entry first. The optional nullable broker_data object contains arbitrary broker-specific group properties, for example {"broker_type":"OTOCO"}.
+
+Group statuses: PENDING_ENTRY, ACTIVE, COMPLETED, CANCELLED, REJECTED, EXPIRED. Each member retains its own normalized_status. Use GET /orders?order_group_id={order_group_id} to filter members, GET /accounts/{account_id}/order-groups/{order_group_id} to retrieve a group, and DELETE on that group path to request cancellation. A successful cancellation response confirms submission, not completion; follow status updates.
+
+### Time in Force Values
+
+| Code | Name | Description |
+|---|---|---|
+| DAY | Day | Active until end of the regular trading session. |
+| GTC | Good Till Cancel | Active until filled or manually cancelled. |
+| IOC | Immediate or Cancel | Fill what is available immediately; cancel the remainder. |
+| FOK | Fill or Kill | Must fill the entire quantity immediately or cancel the whole order. |
+| OPEN | Market on Open | Executes at the opening auction price. |
+| CLOSE | Market on Close | Executes at the closing auction price. |
+| DAY+ | Day + Extended Hours | Active during both regular and extended trading hours for the session. |
+| GTC+ | GTC + Extended Hours | Active during regular and extended hours until filled or cancelled. |
+
+### Normalized Order Status Values
+
+| Status | Description |
+|---|---|
+| pending | Submitted but not yet acknowledged by the broker. |
+| working | Active and waiting to be filled. |
+| partially_filled | Part of the order has been filled; remainder is still working. |
+| filled | Completely filled. Includes a fills array with per-execution quantity, price, and time. |
+| done_for_day | No longer active for the current trading day. |
+| cancelled | Cancelled by request or expired. |
+| rejected | Rejected by the broker. Check broker_message for the reason. |
+| expired | Expired without being filled (e.g. DAY order past session close). |
+| replaced | Replaced by a modified version of the order. |
+| pending_cancel | Cancel request submitted but not yet confirmed. |
+| pending_replace | Modify request submitted but not yet confirmed. |
+
+### Transactions Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /transactions | Retrieve historical transaction activity. Filter by account_id, connection_id, transaction_types, start_time, and end_time. Returns transaction type, symbol, quantity, amount, and date. |
+
+Available transaction types: ACAT, ACCOUNT_TRANSFER, DEPOSIT, DIVIDEND, FEE, FILL, INTEREST, JOURNAL_ENTRY, MISC, OPTION_EXPIRATION, OPTION_ASSIGNMENT, OPTION_EXERCISE, REI, TAX, WITHDRAWAL.
+
+### Streaming Broker API (WebSocket)
+
+Base URL: wss://stream.connecttrade.com. Authenticate within 30 seconds with client credentials or access_token (not both). Client-credential/platform-token sessions share 10 sessions per client ID; user-token sessions allow 5 sessions per user.
+
+| Message/action | Direction | Description |
+|---|---|---|
+| authenticate | Client → Server | Send client_id/client_secret or access_token, never both. |
+| subscribe | Client → Server | Subscribe to topics: orders, positions, and/or balances. |
+| subscribe_user | Client → Server | Platform sessions select target users. User-token sessions automatically subscribe to their own user. |
+| unsubscribe_user | Client → Server | Release this session's subscription to a platform user. |
+| orders | Server → Client | Incremental order update. |
+| positions | Server → Client | Incremental position update. |
+| balances | Server → Client | Incremental account-balance update. |
+
+Per-user subscriptions are idempotent. Platform sessions support 500 users; user-token sessions are restricted to their automatically subscribed user. On reconnect, authenticate using valid credentials or a valid token and restore topic subscriptions; platform sessions also restore user subscriptions. Fetch initial snapshots via REST, then apply incremental updates.
+
+### Streaming Market Data API (WebSocket)
+
+Base URL: wss://mdstream.connecttrade.com. Authenticated using a short-lived access token from GET /connections/{connection_id}/token. Tokens are valid for 24 hours. One token active per connection at a time.
+
+| Action | Channel | Description |
+|---|---|---|
+| subscribe | quotes | Real-time Level 1 bid/ask quotes and last trade price for specified symbols. |
+| subscribe | trades | Real-time time and sales data. Optional `session` selects regular or extended-hours data. |
+| subscribe | bars | Real-time OHLCV candlestick bars. Configurable interval (e.g. 1m, 5m, 4h, 1d, 1w). Optional historical backfill. |
+| subscribe | depth | Real-time Level 2 order book. Configurable number of price levels. |
+| subscribe | options_chain | Real-time options chain data. Optional Greeks (delta, gamma, theta, vega, rho). |
+| snapshot | bars | Request a historical OHLCV snapshot without a persistent subscription. |
+| list_subscriptions | — | List all active subscriptions for the current connection. |
+| unsubscribe | — | Cancel a subscription using its `sub_id`. |
+
+### HTTP Status Codes
+
+| Code | Meaning |
+|---|---|
+| 200 | Success. |
+| 400 | Bad Request — malformed request body, missing required fields, or invalid field value. |
+| 401 | Unauthorized — invalid credentials, missing headers, or insufficient entitlements. |
+| 404 | Not Found — the specified resource does not exist. |
+| 409 | Conflict — a resource with the given identifier already exists (e.g. duplicate user_id or cl_order_id), or an order create/replace/cancel operation targets a BROKEN connection that needs re-authentication. |
+| 422 | Validation error — invalid query parameter, status, cursor, or limit. |
+| 500 | Internal Server Error — an unexpected error occurred on the Connect Trade platform side. |
+
+## Approved OMS Vendor
+
+Connect Trade is an approved OMS vendor for Interactive Brokers, giving platforms a trusted, compliant path to IBKR connectivity from day one without going through the vendor approval process independently.
+
+## Market Data
+
+Connect Trade provides broker-sourced market data natively through the same API used for trading and account connectivity. This eliminates the need for a separate third-party market data vendor contract. Platforms have saved approximately $100,000 in market data costs by accessing broker-sourced data through Connect Trade instead of contracting independently. Market data is currently available through TradeStation. Additional brokers have market data support pending.
+
+## Compliance and Security
+
+All Connect Trade broker integrations are compliance approved. Every broker connection is built on official sanctioned APIs. Connect Trade does not use screen scraping or reverse engineering. Approval requirements vary by broker — some automatically approve all Connect Trade clients, while others review platforms individually. When approval is required, Connect Trade manages the process and coordinates the review on the platform's behalf. Connect Trade is infrastructure brokers already know and trust.
+
+## Broker Approval
+
+Approval requirements vary by broker. Some brokers automatically approve all Connect Trade clients, while others review platforms individually. When approval is required, Connect Trade manages the process with the broker and coordinates the review on your behalf. Connect Trade is infrastructure brokers already know and trust.
+
+## Integration Time
+
+Most platforms complete their Connect Trade integration in 2 to 5 business days. The OpenAPI specification is compatible with AI coding assistants including ChatGPT, Claude, Gemini, GitHub Copilot, and Cursor, which can generate working integration code automatically. Typical direct integration timelines range from 4 to 12 weeks per broker; Connect Trade reduces this to days for the full broker network.
+
+## Onboarding
+
+After signing up, platforms receive access to the Connect Trade API documentation and OpenAPI specification. Most platforms complete their initial integration in 2 to 5 business days. The Connect Trade team provides hands-on support during integration including authentication setup, broker connectivity configuration, and testing.
+
+## Case Studies
+
+### No-Code Trading Execution with Webull
+Level2 is a no-code trading platform backed by ABN AMRO and Techstars that connected to Webull through the Connect Trade API, saving months of broker integration development and preserving full engineering focus on the core product.
+Quote from Andrew Grevett, CEO of Level2: "Connect Trade provides the infrastructure for all of our broker connectivity, allowing our team to stay laser focused on building great products."
+URL: https://connecttrade.com/case-studies/no-code-algo-webull-integration
+
+### IBKR Integration for Multi-Asset Trading
+Lightspeed Connect used Connect Trade as an approved IBKR OMS vendor to add Interactive Brokers support for equities, options, and futures trading. Because Connect Trade is an approved OMS vendor for Interactive Brokers, Lightspeed inherited a trusted, compliant integration from day one, going live significantly faster than a direct integration path.
+URL: https://connecttrade.com/case-studies/trading-platform-interactive-brokers-integration
+
+### Portfolio Analytics Powered by Connect Trade (Tykr)
+Tykr, a portfolio analytics and stock-research platform for retail investors, connects Fidelity and Schwab accounts through the Connect Trade API to deliver normalized balances, positions, and transactions to its users. Tykr also reaches additional brokers across the Connect Trade network through the same integration.
+URL: https://connecttrade.com/case-studies/tykr-portfolio-analytics-integration
+
+### TradeZero Options Trading Integration
+Tradetron Tech connected its Options Wizard strategy builder to TradeZero for single and multi-leg options trading through the Connect Trade API, expanding broker coverage without adding a direct integration to maintain.
+URL: https://connecttrade.com/case-studies/trading-platform-tradezero-integration
+
+### TradeStation Market Data and Trading Integration
+Ontology Trading saved approximately $100,000 in market data costs by accessing broker-sourced TradeStation market data natively through the Connect Trade API instead of contracting a separate vendor. Months of development time were also saved by eliminating the need to source, negotiate, and code to a separate market data API. A single integration replaced what would have been two parallel infrastructure projects.
+URL: https://connecttrade.com/case-studies/market-data-tradestation-integration
+
+## News
+
+Connect Trade publishes news and updates at https://connecttrade.com/news covering broker connectivity, fintech platform development, trading infrastructure, market data, and API integrations. The news section contains posts on topics including options trading infrastructure, broker onboarding, normalized APIs, real-time market data, and platform case studies. All posts are available as individual pages at https://connecttrade.com/news/[slug].
+
+## FAQ
+
+### What is Connect Trade?
+Connect Trade is a unified broker connectivity API that allows fintech platforms to integrate with multiple brokers through a single normalized infrastructure layer. Instead of building and maintaining separate integrations for each brokerage, developers connect once to Connect Trade and gain access to broker connectivity for trading, account data, and market data.
+
+### Which brokers does Connect Trade support?
+Connect Trade supports 21 brokers including Interactive Brokers, Fidelity, Charles Schwab, Webull, TradeStation, Tastytrade, TradeZero, Alpaca, Lightspeed, and Sterling Trading Tech, with new brokers added monthly. See the full broker list at https://connecttrade.com/integrations.
+
+### What asset classes does Connect Trade support?
+Connect Trade supports equities, single-leg options, multi-leg options, futures and crypto across supported brokers. Availability varies by broker. See the full capability matrix at https://connecttrade.com/integrations.
+
+### How do I sign up for Connect Trade?
+Click Sign Up at the top of any page at https://connecttrade.com. Create an account, verify your email, and you'll get immediate access to the developer portal at https://portal.connecttrade.com/signup.
+
+### Does Connect Trade offer self-serve signup?
+Yes. Sign up directly through the developer portal at https://portal.connecttrade.com/signup to get API access immediately.
+
+### How do I get API keys for Connect Trade?
+Sign up for the developer portal at https://portal.connecttrade.com/signup. API keys are generated automatically when you create your account.
+
+### How quickly can I start building with Connect Trade?
+Most developers make their first API call within an hour of signing up.
+
+### What's included in the Connect Trade developer portal?
+The developer portal includes API keys, API documentation, broker connection management, usage analytics, and account settings.
+
+### What are the Connect Trade pricing tiers?
+Connect Trade offers three plans: Builder at $19/month (month-to-month, includes 10 connected users), Growth at $500/month (annual commitment, includes 500 connected users and $1.00/month per additional user), and Enterprise with custom pricing for established platforms at scale. See full details at https://connecttrade.com/pricing.
+
+### How long does it take to integrate with Connect Trade?
+Most platforms complete their Connect Trade integration in 2 to 5 business days. Because the API is normalized across all supported brokers, developers implement a single integration rather than building separate connections for each brokerage.
+
+### What does the Connect Trade onboarding process look like?
+After signing up, platforms receive access to the Connect Trade API documentation and OpenAPI specification. Most platforms complete their initial integration in 2 to 5 business days. The Connect Trade team provides hands-on support during integration including authentication setup, broker connectivity configuration, and testing.
+
+### Do I need individual broker approval to use Connect Trade?
+Approval requirements vary by broker. Some brokers automatically approve all Connect Trade clients, while others review platforms individually. When approval is required, Connect Trade manages the process with the broker and coordinates the review on your behalf. All integrations use official, sanctioned broker APIs.
+
+### What authentication methods does Connect Trade use?
+Connect Trade uses OAuth for broker authentication across supported integrations. OAuth allows users to securely connect their brokerage accounts without sharing credentials directly with the platform. Authentication flows are normalized across brokers so platforms implement a single OAuth workflow rather than broker-specific logic for each brokerage.
+
+### Is there a sandbox or paper trading environment for testing?
+Yes. Connect Trade supports paper trading for brokers that offer it, including TradeStation, Tradier, Alpaca, and TradeZero. Paper trading allows development teams to test order management, position tracking, and trade execution without placing live trades.
+
+### What does the Connect Trade OpenAPI specification cover?
+The Connect Trade OpenAPI specification covers authentication, account connectivity, order management, positions, historical transactions, market data, equities trading, single-leg and multi-leg options trading, and futures trading. The specification is compatible with AI coding assistants including ChatGPT, Claude, Gemini, GitHub Copilot, and Cursor. The full specification is available at https://connecttrade.com/openapi.json.
+
+### What is the Connect Trade MCP server?
+The Connect Trade MCP server is a server-side Model Context Protocol integration that gives AI platforms and fintech applications direct, structured access to the Connect Trade API. It enables AI agents to connect to brokerage accounts, retrieve account data, stream real-time market data, and execute trades through a single server-side integration using the MCP standard.
+
+### What can AI agents do through the Connect Trade MCP server?
+AI agents connected through the Connect Trade MCP server can retrieve account balances, positions, and transaction history, stream real-time market data, and place and cancel trades across more than 20 brokers. This makes it possible to build AI-native trading and portfolio management experiences without managing direct broker integrations.
+
+### How is the MCP server different from the Connect Trade REST API?
+The REST API is designed for traditional application development. The MCP server is designed specifically for AI agents and LLM-powered applications, giving them a structured, permissioned interface to brokerage data and trading functionality through the MCP standard. Both access the same underlying broker network.
+
+### Which AI platforms work with the Connect Trade MCP server?
+The Connect Trade MCP server works with any AI platform or application that supports the Model Context Protocol standard, including platforms built on Claude, ChatGPT, and Gemini.
+
+### How do I get access to the Connect Trade MCP server?
+The Connect Trade MCP server is available for production use. If you have Connect Trade platform credentials and a connected user, follow the MCP integration guide at https://connecttrade.com/docs/mcp to get started. If you need API access, contact us at https://connecttrade.com/contact.
+
+### Can AI coding tools generate Connect Trade integrations?
+Yes. Connect Trade publishes a standard OpenAPI specification that AI coding assistants including ChatGPT, Claude, Gemini, GitHub Copilot, and Cursor can use to generate integration code automatically. The Connect Trade OpenAPI specification is available at https://connecttrade.com/openapi.json.
+
+### Where can I find the Connect Trade OpenAPI specification?
+The Connect Trade OpenAPI specification is publicly available at https://connecttrade.com/openapi.json. The specification follows the OpenAPI 3.0 standard and covers all REST endpoints, WebSocket APIs for real-time trading and market data streaming, request and response schemas, and order examples for equities, options, and multi-leg strategies.
+
+### Are Connect Trade integrations compliance approved?
+Yes. All Connect Trade broker integrations are compliance approved. Every broker connection is built on official, sanctioned APIs. Connect Trade does not use screen scraping or reverse engineering. For brokers that require individual client approval, Connect Trade facilitates that process on your behalf.
+
+### Why use Connect Trade instead of integrating directly with each broker?
+Each broker exposes different APIs, authentication models, data formats, and compliance requirements. Maintaining separate integrations for even 3 to 4 brokers creates substantial ongoing engineering overhead. Connect Trade normalizes this across 21 brokers through a single API, so platforms ship faster and spend less time on broker maintenance. Typical direct integration timelines range from 4 to 12 weeks per broker; Connect Trade reduces this to days for the full broker network.
+
+### Does Connect Trade support both trading and market data?
+Yes. Connect Trade provides infrastructure for trade execution, account balances, positions, historical transactions, and brokerage-sourced market data through the same unified API. Market data availability varies by broker.
+
+### What types of platforms use Connect Trade?
+Connect Trade is used by trading platforms, portfolio analytics tools, no-code algorithmic trading platforms, market scanners, trading journals, and financial newsletters. These platforms rely on Connect Trade for broker connectivity, trade execution, account data, and market data without maintaining direct broker integrations themselves.
+
+### How do fintech platforms integrate with brokers?
+Fintech platforms typically integrate with brokers through APIs. Connect Trade provides a unified API that allows platforms to connect once and access broker integrations through a consistent interface. This approach removes the need to build and maintain individual integrations for each brokerage and significantly reduces development complexity.
+
+### How does Connect Trade compare to other broker connectivity solutions?
+Connect Trade is built differently from competing broker connectivity solutions. All Connect Trade connections are broker-approved and built on official sanctioned APIs. Competing solutions include screen-scraped and reverse-engineered connections that can be terminated without notice. Connect Trade uses OAuth across all broker connections for simple click-through end user authentication, while competing solutions require API keys or webhooks on some connections. Connect Trade is the only broker connectivity API with WebSocket streaming for orders, positions, and account balances across all supported brokers. Competing solutions use polling only with no WebSocket support. Connect Trade delivers real-time brokerage-sourced market data through the same normalized API used for trading. Competing solutions have no market data streaming API. Connect Trade delivers real-time order updates via WebSocket while competing solutions recommend polling for order status every 10 seconds maximum. Connect Trade returns data in a single REST call across all plans while some competing solution plans require a 3-step async process. The Connect Trade API is fully normalized across all brokers. Broker rate limits are managed server-side by Connect Trade. Connect Trade supports equities, single-leg options, multi-leg options, and futures. Competing solutions support equities and single-leg options only.
+
+## API Cookbook
+
+Full cookbook: https://connecttrade.com/docs/cookbook
+
+Ready-to-run Python code samples for the most common Connect Trade API integration tasks. All samples use base URL https://api.connecttrade.com and authenticate via client-id, client-secret, user-id, and user-secret headers.
+
+### Setup
+
+```python
+import requests
+
+BASE_URL = "https://api.connecttrade.com"
+
+HEADERS = {
+    "client-id": "YOUR_CLIENT_ID",
+    "client-secret": "YOUR_CLIENT_SECRET",
+    "user-id": "YOUR_USER_ID",
+    "user-secret": "YOUR_USER_SECRET",
+}
+
+def get(path, params=None):
+    r = requests.get(f"{BASE_URL}{path}", headers=HEADERS, params=params)
+    r.raise_for_status()
+    return r.json()
+
+def post(path, body):
+    r = requests.post(f"{BASE_URL}{path}", headers={**HEADERS, "Content-Type": "application/json"}, json=body)
+    r.raise_for_status()
+    return r.json()
+
+def delete(path):
+    r = requests.delete(f"{BASE_URL}{path}", headers=HEADERS)
+    r.raise_for_status()
+    return r.json()
+
+def patch(path, body):
+    r = requests.patch(f"{BASE_URL}{path}", headers={**HEADERS, "Content-Type": "application/json"}, json=body)
+    r.raise_for_status()
+    return r.json()
+```
+
+### Get Account Balances
+
+Retrieve cash, buying power, and margin information across all connected brokerage accounts using GET /balances.
+
+```python
+balances = get("/balances")
+for bal in balances:
+    print(f"Account {bal['account_number']}: "
+          f"cash={bal['cash']}, buying_power={bal['buying_power']}")
+```
+
+### Get Positions
+
+Retrieve current holdings including quantity, last price, and unrealized P&L for each position using GET /positions.
+
+```python
+positions = get("/positions")
+for pos in positions:
+    print(f"{pos['symbol']}: {pos['quantity']} shares @ {pos['last_price']}, "
+          f"unrealized P&L: {pos['unrealized_pl']}")
+```
+
+### Get Open Orders
+
+List all working orders filtered by status using GET /orders?status=open. Each order includes symbol, side, quantity, order type, and normalized status.
+
+```python
+orders = get("/orders", params={"status": "open"})
+for order in orders:
+    print(f"{order['symbol']} {order['side']} {order['order_qty']} "
+          f"({order['order_type']}) — {order['normalized_status']}")
+```
+
+### Get Filled Orders
+
+Retrieve recently filled orders sorted by execution time. Each order includes a fills array with per-execution quantity and price.
+
+```python
+orders = get("/orders", params={"status": "filled", "sort": "last_exec_time:desc", "limit": "20"})
+for order in orders:
+    fills = order.get("fills", [])
+    total_filled = sum(float(f["quantity"]) for f in fills)
+    print(f"{order['symbol']} {order['side']} filled {total_filled} shares")
+```
+
+### List Connected Accounts
+
+List all brokerage accounts linked to the user, including institution name, account number, and account ID using GET /accounts.
+
+```python
+accounts = get("/accounts")
+for acct in accounts:
+    print(f"{acct['institution_name']} — {acct['account_number']} (id: {acct['account_id']})")
+```
+
+### Get Recent Transactions
+
+Retrieve historical transaction activity filtered by date range using GET /transactions.
+
+```python
+txns = get("/transactions", params={
+    "transaction_types": "TAX,DIVIDEND",
+    "start_time": "2025-06-01T00:00:00Z",
+    "end_time": "2025-06-30T23:59:59Z"
+})
+for txn in txns:
+    print(f"{txn['transaction_type']}: {txn.get('symbol', 'N/A')} — {txn.get('amount', 'N/A')}")
+```
+
+### Place a Market Order
+
+Submit a market order using POST /orders. Required fields include account_id, a unique cl_order_id, broker code, side, quantity, order type, time in force, instrument, and symbol.
+
+```python
+import uuid
+
+order = post("/orders", {
+    "account_id": "YOUR_ACCOUNT_ID",
+    "cl_order_id": str(uuid.uuid4())[:30],
+    "broker": "ALPACA",
+    "side": "BUY",
+    "order_qty": "10",
+    "order_type": "MKT",
+    "order_tif": "DAY",
+    "instrument": "STK",
+    "symbol": "AAPL"
+})
+print(f"Order {order['order_id']} — status: {order['normalized_status']}")
+```
+
+### Cancel All Open Orders
+
+Fetch all open orders and cancel each one using DELETE /accounts/{account_id}/orders/{order_id}.
+
+```python
+orders = get("/orders", params={"status": "open"})
+for order in orders:
+    result = delete(f"/accounts/{order['account_id']}/orders/{order['order_id']}")
+    print(f"Cancelled {order['symbol']} {order['side']} — {result['message']}")
+```
+
+### Sum Unrealized P&L
+
+Calculate total unrealized profit and loss across all positions by summing the unrealized_pl field from GET /positions.
+
+```python
+positions = get("/positions")
+total_pl = sum(
+    float(p["unrealized_pl"])
+    for p in positions
+    if p.get("unrealized_pl") is not None
+)
+print(f"Total unrealized P&L: ${total_pl:,.2f}")
+```
+
+### Fills from Today
+
+Retrieve all order fills from the current trading day by filtering orders by start time and flattening the fills array from each order.
+
+```python
+from datetime import datetime, timezone
+
+today = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+orders = get("/orders", params={
+    "status": "all",
+    "start_time": today,
+    "sort": "last_exec_time:desc",
+    "limit": "500"
+})
+
+fills = []
+for order in orders:
+    for fill in order.get("fills", []):
+        fills.append({
+            "symbol": order["symbol"],
+            "side": order["side"],
+            "price": fill["price"],
+            "quantity": fill["quantity"],
+            "time": fill["time"],
+        })
+
+print(f"Total fills today: {len(fills)}")
+for f in fills[:10]:
+    print(f"  {f['time']} {f['symbol']} {f['side']} {f['quantity']} @ {f['price']}")
+```
+
+### Momentum Signal
+
+Calculate a 20-day price momentum signal using the Streaming Market Data API. Connect to wss://mdstream.connecttrade.com, authenticate with a short-lived access token, and subscribe to daily bars with historical backfill.
+
+```python
+import asyncio, json, uuid
+import websockets
+
+async def spy_momentum():
+    token_resp = get("/connections/YOUR_CONNECTION_ID/token")
+    access_token = token_resp["access_token"]
+
+    async with websockets.connect("wss://mdstream.connecttrade.com") as ws:
+        await ws.send(json.dumps({
+            "action": "authenticate",
+            "access_token": access_token,
+            "request_id": str(uuid.uuid4())
+        }))
+        auth = json.loads(await ws.recv())
+        assert auth["type"] == "auth_success"
+
+        await ws.send(json.dumps({
+            "action": "subscribe",
+            "channel": "bars",
+            "symbol": "SPY",
+            "interval": "1d",
+            "session": "USEqCore",
+            "request_id": str(uuid.uuid4()),
+            "backfill_nbars": 20
+        }))
+
+        bars = []
+        async for raw in ws:
+            msg = json.loads(raw)
+            if msg.get("type") == "subscribed":
+                continue
+            if "c" in msg:
+                bars.append(float(msg["c"]))
+                if len(bars) >= 20:
+                    momentum = (bars[-1] / bars[0]) - 1
+                    print(f"SPY 20-day momentum: {momentum:+.2%}")
+                    return
+
+asyncio.run(spy_momentum())
+```
+
+### Calculate VWAP
+
+Compute the volume-weighted average price (VWAP) for a symbol's fills from the current day. Fetches filled orders for a symbol and calculates the weighted average across all executions.
+
+```python
+from datetime import datetime, timezone
+
+orders = get("/orders", params={
+    "status": "filled",
+    "symbols": "AAPL",
+    "start_time": datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z"),
+    "limit": "500"
+})
+
+total_qty = 0
+total_cost = 0
+for order in orders:
+    for fill in order.get("fills", []):
+        qty = float(fill["quantity"])
+        px = float(fill["price"])
+        total_qty += qty
+        total_cost += qty * px
+
+if total_qty > 0:
+    vwap = total_cost / total_qty
+    print(f"AAPL execution VWAP: ${vwap:.4f} ({total_qty:.0f} shares)")
+```
+
+### Portfolio Concentration
+
+Calculate each position's share of total portfolio market value, sorted from largest to smallest.
+
+```python
+positions = get("/positions")
+values = []
+for pos in positions:
+    if pos.get("last_price") and pos.get("quantity"):
+        mv = float(pos["last_price"]) * float(pos["quantity"])
+        values.append((pos["symbol"], mv))
+
+total = sum(v for _, v in values)
+values.sort(key=lambda x: -x[1])
+print("Portfolio concentration:")
+for sym, mv in values:
+    pct = mv / total * 100 if total else 0
+    print(f"  {sym}: ${mv:,.0f} ({pct:.1f}%)")
+```
+
+## Developer Resources
+
+- Quickstart (getting started guide with Python code examples): https://connecttrade.com/docs/quickstart
+- API documentation: https://connecttrade.com/docs
+- Getting started: https://connecttrade.com/docs#getting-started
+- API overview: https://connecttrade.com/docs#overview
+- Authentication and first user: https://connecttrade.com/docs#first-user
+- Endpoints reference: https://connecttrade.com/docs#endpoints
+- Paper trading: https://connecttrade.com/docs#paper-trading
+- Trading: https://connecttrade.com/docs#trading
+- Account details: https://connecttrade.com/docs#account-details
+- Streaming overview: https://connecttrade.com/docs#streaming
+- Streaming brokerage data API: https://connecttrade.com/docs#brokerage-data
+- Streaming market data API: https://connecttrade.com/docs#market-data
+- Common workflows: https://connecttrade.com/docs#workflows
+- Debugging OAuth: https://connecttrade.com/docs#debugging
+- Error responses: https://connecttrade.com/docs#errors
+- Broker codes: https://connecttrade.com/docs#broker-codes
+- Symbology: https://connecttrade.com/docs#symbology
+- API reference: https://connecttrade.com/docs/api
+- API cookbook: https://connecttrade.com/docs/cookbook
+- MCP server integration guide (connect Claude Code, Cursor, Windsurf, VS Code, Codex CLI): https://connecttrade.com/docs/mcp
+- OpenAPI specification: https://connecttrade.com/openapi.json
+- LLMs.txt: https://connecttrade.com/llms.txt
+- LLMs-full.txt: https://connecttrade.com/llms-full.txt
+- Request API access: https://connecttrade.com/contact
+
+## Site Map
+
+- https://connecttrade.com/ — Homepage
+- https://connecttrade.com/integrations — Broker integrations and capability matrix
+- https://connecttrade.com/faq — Frequently asked questions
+- https://connecttrade.com/docs/quickstart — Quickstart guide (getting started with Python code examples)
+- https://connecttrade.com/docs/build-with-ai — Build with AI (how to use Claude, Cursor, ChatGPT, Gemini, and Copilot with the Connect Trade API using reference files)
+- https://connecttrade.com/docs — API documentation (full reference, authentication, streaming, broker codes, symbology)
+- https://connecttrade.com/docs/api — Complete REST and WebSocket endpoint reference
+- https://connecttrade.com/docs/cookbook — Code samples in Python, JavaScript, Go, and Rust
+- https://connecttrade.com/docs/mcp — MCP server integration guide (Claude Code, Cursor, Windsurf, VS Code, Codex CLI)
+- https://connecttrade.com/case-studies — Case studies index
+- https://connecttrade.com/case-studies/no-code-algo-webull-integration — Level2 and Webull case study
+- https://connecttrade.com/case-studies/trading-platform-interactive-brokers-integration — Lightspeed Connect and Interactive Brokers case study
+- https://connecttrade.com/case-studies/tykr-portfolio-analytics-integration — Tykr portfolio analytics with Fidelity and Schwab case study
+- https://connecttrade.com/case-studies/trading-platform-tradezero-integration — Tradetron Tech and TradeZero case study
+- https://connecttrade.com/case-studies/market-data-tradestation-integration — Ontology Trading and TradeStation case study
+- https://connecttrade.com/news — News and updates
+- https://connecttrade.com/contact — Contact and API access request
+
+## Links
+
+- Homepage: https://connecttrade.com
+- API Documentation: https://connecttrade.com/docs
+- OpenAPI Specification: https://connecttrade.com/openapi.json
+- Broker Integrations: https://connecttrade.com/integrations
+- FAQ: https://connecttrade.com/faq
+- Case Studies: https://connecttrade.com/case-studies
+- API Reference: https://connecttrade.com/docs/api
+- API Cookbook: https://connecttrade.com/docs/cookbook
+- LinkedIn: https://www.linkedin.com/company/connecttradeapi
+- Twitter/X: https://twitter.com/ConnectTradeAPI
+- MCP Server Integration Guide: https://connecttrade.com/docs/mcp
