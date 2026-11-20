@@ -61,7 +61,7 @@ Features: `ureq` (the transport) and `stream` (the WebSocket client), both defau
 - Faults per request: `X-Auth-Failure`, `X-Service-Unavailable`, `X-Rate-Limit`, and `X-Mock-Delay-Before-Ms` / `X-Mock-Delay-After-Ms` for a timeout before or after the change was made.
 - Controls: `POST /mock/prices`, `POST /mock/session` (`pre`, `regular`, `post`), `POST /mock/connections/{id}/break`, `POST /mock/reset`.
 
-It accepts the platform credentials `mock-client-id` / `mock-client-secret` (or `CT_MOCK_CLIENT_ID` / `CT_MOCK_CLIENT_SECRET`). An image: `docker build -f crates/ct-mock/Dockerfile -t ct-mock .`
+It accepts the platform credentials `mock-client-id` / `mock-client-secret` (or `CT_MOCK_CLIENT_ID` / `CT_MOCK_CLIENT_SECRET`). The image is built by the Octopilot pipeline with the octopilot/rust buildpack (see `skaffold.yaml`): every run pushes it to ttl.sh, and a release promotes it to `ghcr.io/microscaler/ct-mock:vX.Y.Z`.
 
 ## Tests
 
@@ -74,6 +74,13 @@ It accepts the platform credentials `mock-client-id` / `mock-client-secret` (or 
 ## Coding standards
 
 The Microscaler JSF-inspired profile, as in BRRTRouter, lifeguard, sesame-idam and rerp: no panics or unsafe in production code, bounded complexity, pedantic clippy with `-D warnings`, every `#[allow]` with a reason, no OS-blocking calls where a `may` runtime may run, no file over 512 KiB and no hand-written Rust file over 500 lines. See [docs/coding-standards.md](docs/coding-standards.md); the pre-commit and pre-push hooks run the same checks as CI.
+
+## CI and releases
+
+- **Octopilot CI** (`octopilot-ci.yml`): the shared Octopilot library pipeline, as in BRRTRouter. Lint (fmt, and the pre-commit hooks: file sizes, codegen drift), the full test suite on 1.99.0, the `connecttrade-lib` deliverable, and the ct-mock image. Pull requests run on GitHub-hosted runners; pushes and tags on the ms02 runners.
+- **Checks** (`checks.yml`): a blocking clippy (the pipeline's only warns), clippy without default features, and the Monday spec-drift check.
+- **Release** (`release.yml`): octopilot's library release, which tags a green commit on main as `vX.Y.Z`. See [RELEASING.md](RELEASING.md).
+- **Dependabot**: weekly, with the shared-stack group used across Microscaler repos; minor and patch updates auto-merge once CI passes.
 
 ## Licence
 
