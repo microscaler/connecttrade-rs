@@ -28,3 +28,6 @@ webpki-roots = { version = "1", optional = true }
 [dev-dependencies]
 ct-mock = { path = "../ct-mock" }
 ureq = { version = "3", default-features = false, features = ["json"] }
+
+[lints]
+workspace = true

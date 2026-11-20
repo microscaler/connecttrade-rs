@@ -1,0 +1,53 @@
+name: Checks
+
+# What the Octopilot pipeline (octopilot-ci.yml) does not enforce for this repo:
+# - a blocking clippy: the pipeline's lint reports clippy warnings without failing, and the JSF profile
+#   (docs/coding-standards.md) must fail the build;
+# - clippy without default features (models and sans-IO requests only);
+# - every Monday, whether Connect Trade has published a new spec.
+# fmt, the file-size rules and codegen drift run in the pipeline's lint (pre-commit); tests in its Test job.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays 05:17 UTC: has Connect Trade published a new spec?
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+# GitHub-hosted runners: this repository is public, so pull requests from forks must never reach self-hosted
+# machines, and these jobs are small enough not to need ms02's compile cache.
+jobs:
+  clippy:
+    name: Clippy (JSF profile, blocking)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml pins the shared Microscaler toolchain (with rustfmt and clippy); rustup installs it on
+      # first use, so this step only makes sure rustup is there.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy, all targets
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Clippy without default features
+        run: cargo clippy -p connecttrade --no-default-features -- -D warnings
+
+  spec-drift:
+    name: Connect Trade spec drift
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compare with Connect Trade's published spec
+        run: scripts/refresh-spec.sh

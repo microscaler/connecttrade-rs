@@ -1,0 +1,33 @@
+# Octopilot shape source of truth (detect-contexts reads this).
+#
+# connecttrade-rs is a library-first Cargo workspace with one deployable: ct-mock, the Connect Trade mock that
+# PriceWhisperer runs its Connect Trade adaptor against. The workspace root carries Cargo.toml and
+# rust-toolchain.toml, so detect-contexts classifies the repo as rust and runs lint and tests on 1.99.0.
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: connecttrade-rs
+build:
+  artifacts:
+    # image function: ct-mock, built with the octopilot/rust buildpack. Every run pushes it to ttl.sh; a v* tag
+    # promotes the tested image by digest to ghcr.io/microscaler/ct-mock. It listens on PORT (default 8098).
+    - image: ghcr.io/microscaler/ct-mock
+      context: .
+      buildpacks:
+        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-16c038a
+        buildpacks:
+          - octopilot/rust
+        env:
+          - BP_RUST_PACKAGE=ct-mock
+          - BP_RUST_BINARY_NAME=ct-mock
+    # lib function (-lib suffix): "build and test it all" for the client. publish=none: the deliverable is the
+    # verified rev that consumers (PriceWhisperer) pin as a git dependency by release tag.
+    # build-only verify: the full suite (client against ct-mock, spec checks) runs once in the pipeline Test job.
+    - image: ghcr.io/microscaler/connecttrade-lib
+      context: .
+      buildpacks:
+        builder: ghcr.io/octopilot/builder-jammy-base:rust-builder-16c038a
+        env:
+          - BP_LIB_PUBLISH=none
+          - BP_LIB_PACKAGES=connecttrade
+          - BP_LIB_VERIFY=build

@@ -1,0 +1,55 @@
+# Pre-commit: https://pre-commit.com
+# Install once: pre-commit install (installs the commit, commit-msg and pre-push hooks listed below).
+# Run everything: pre-commit run --all-files --hook-stage pre-push
+#
+# The same gates as CI (.github/workflows/ci.yml), so a red CI run is never the first you hear of it. Fast checks run on
+# every commit; clippy and the tests run on push. Commit messages follow Conventional Commits, as in BRRTRouter.
+
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_stages: [pre-commit, pre-push]
+
+repos:
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v1.3.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt-check
+        name: cargo fmt (check)
+        entry: cargo fmt --all -- --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: file-sizes
+        name: no file over 512 KiB, no hand-written Rust file over 500 lines
+        entry: scripts/check-file-sizes.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: codegen-drift
+        name: generated code matches spec and overlay
+        entry: cargo xtask codegen --check
+        language: system
+        files: ^(spec/|xtask/|crates/connecttrade/src/generated/)
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: cargo clippy (JSF profile, -D warnings)
+        entry: cargo clippy --workspace --all-targets -- -D warnings
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: cargo-test
+        name: cargo test (client against ct-mock, spec checks)
+        entry: cargo test --workspace
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

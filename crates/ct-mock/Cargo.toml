@@ -26,9 +26,13 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 
 [dev-dependencies]
 connecttrade = { path = "../connecttrade" }
 jsonschema = { version = "0.33", default-features = false }
 ureq = { version = "3", default-features = false }
+
+[lints]
+workspace = true

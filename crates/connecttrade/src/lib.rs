@@ -1,7 +1,7 @@
 //! Client for [Connect Trade](https://connecttrade.com), the broker connectivity API: one normalised API in front of
-//! TradeZero, tastytrade, Tradier, Lightspeed and other brokers.
+//! `TradeZero`, tastytrade, Tradier, Lightspeed and other brokers.
 //!
-//! - [`models`] and [`ops`] are generated from Connect Trade's OpenAPI spec (`spec/openapi.json`) and our overlay
+//! - [`models`] and [`ops`] are generated from Connect Trade's `OpenAPI` spec (`spec/openapi.json`) and our overlay
 //!   (`spec/overlay.json`) by `cargo xtask codegen`. Never edit them by hand.
 //! - Every operation returns a sans-IO [`Request`]: build it, send it with any [`Transport`], parse the answer.
 //!   [`Client`] does the three steps with the built-in [`UreqTransport`] or your own.
@@ -20,7 +20,12 @@ pub mod request;
 pub mod stream;
 pub mod transport;
 
-#[allow(clippy::all, clippy::pedantic, missing_docs)]
+#[allow(
+    clippy::all,
+    clippy::pedantic,
+    missing_docs,
+    reason = "generated from the spec by `cargo xtask codegen`; fixed in the generator, never by hand"
+)]
 mod generated {
     pub mod models;
     pub mod operations;

@@ -57,14 +57,17 @@ impl ApiError {
     /// `409` on a create, replace or cancel: the duplicate `cl_order_id` case or a `BROKEN` connection. The two are
     /// told apart by the message; a broken connection needs the user to log in at the broker again
     /// (`repair_connection`), never a retry.
+    #[must_use]
     pub fn is_conflict(&self) -> bool {
         self.status == 409
     }
 
+    #[must_use]
     pub fn is_broken_connection(&self) -> bool {
         self.status == 409 && self.message.to_ascii_lowercase().contains("broken")
     }
 
+    #[must_use]
     pub fn is_rate_limited(&self) -> bool {
         self.status == 429
     }
@@ -98,6 +101,9 @@ pub enum TransportError {
 pub enum Error {
     #[error("{operation}: needs {missing}")]
     Credentials { operation: &'static str, missing: &'static str },
+    /// The request body could not be encoded; nothing was sent.
+    #[error("{operation}: body did not encode: {reason}")]
+    Encode { operation: &'static str, reason: String },
     #[error("transport: {0}")]
     Transport(#[from] TransportError),
     #[error("{} {}: {}", .0.operation, .0.status, .0.message)]
@@ -109,11 +115,13 @@ pub enum Error {
 impl Error {
     /// For a change (create, replace, cancel): true when it may have happened even though this call failed.
     /// The caller must then look the order up by its `cl_order_id` before doing anything else.
+    #[must_use]
     pub fn may_have_happened(&self) -> bool {
         matches!(self, Error::Transport(TransportError::Timeout(_) | TransportError::Broken(_)) | Error::Decode { .. })
             || matches!(self, Error::Api(e) if e.status >= 500)
     }
 
+    #[must_use]
     pub fn api(&self) -> Option<&ApiError> {
         match self {
             Error::Api(e) => Some(e),
@@ -121,6 +129,7 @@ impl Error {
         }
     }
 
+    #[must_use]
     pub fn code(&self) -> Option<&ErrorCode> {
         self.api().and_then(|e| e.code.as_ref())
     }
