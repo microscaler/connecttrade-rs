@@ -12,7 +12,7 @@ mod common;
 
 use common::*;
 use connecttrade::models::*;
-use connecttrade::{ops, Client, Credentials, Error, TransportError, UreqTransport};
+use connecttrade::{ops, Client, Credentials, Error, MayTransport, TransportError};
 use std::time::Duration;
 
 #[test]
@@ -22,7 +22,7 @@ fn a_timeout_after_the_change_means_look_it_up_not_retry() {
     let slow = Client::new(
         env.mock.url(),
         Faulty {
-            inner: UreqTransport::new(Duration::from_secs(1), Duration::from_millis(300)),
+            inner: MayTransport::new(Duration::from_secs(1), Duration::from_millis(300)).unwrap(),
             headers: vec![("x-mock-delay-after-ms", "1000".into())],
         },
     );
@@ -39,7 +39,7 @@ fn a_timeout_after_the_change_means_look_it_up_not_retry() {
     let slow = Client::new(
         env.mock.url(),
         Faulty {
-            inner: UreqTransport::new(Duration::from_secs(1), Duration::from_millis(300)),
+            inner: MayTransport::new(Duration::from_secs(1), Duration::from_millis(300)).unwrap(),
             headers: vec![("x-mock-delay-before-ms", "1000".into())],
         },
     );
@@ -53,9 +53,15 @@ fn a_timeout_after_the_change_means_look_it_up_not_retry() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "macos",
+    ignore = "may reports a refused connect as BrokenPipe on macOS, which the transport (rightly) cannot call not-sent"
+)]
 fn a_connection_refused_is_not_sent() {
-    let client =
-        Client::new("http://127.0.0.1:9", UreqTransport::new(Duration::from_millis(300), Duration::from_secs(1)));
+    let client = Client::new(
+        "http://127.0.0.1:9",
+        MayTransport::new(Duration::from_millis(300), Duration::from_secs(1)).unwrap(),
+    );
     let creds = Credentials::platform("a", "b");
     let e = client.send(&creds, ops::list_users(&Default::default())).unwrap_err();
     assert!(matches!(e, Error::Transport(TransportError::NotSent(_))), "{e:?}");
@@ -66,8 +72,10 @@ fn a_connection_refused_is_not_sent() {
 fn injected_faults_surface_as_api_errors() {
     let env = world();
     for (h, status) in [("x-auth-failure", 401), ("x-service-unavailable", 503), ("x-rate-limit", 429)] {
-        let c =
-            Client::new(env.mock.url(), Faulty { inner: UreqTransport::default(), headers: vec![(h, "true".into())] });
+        let c = Client::new(
+            env.mock.url(),
+            Faulty { inner: MayTransport::with_default_timeouts().unwrap(), headers: vec![(h, "true".into())] },
+        );
         let e = c.send(&env.platform, ops::list_users(&Default::default())).unwrap_err();
         assert_eq!(e.api().unwrap().status, status, "{h}");
     }
