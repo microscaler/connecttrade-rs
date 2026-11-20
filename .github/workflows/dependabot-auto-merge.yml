@@ -1,0 +1,53 @@
+# Enables GitHub auto-merge on Dependabot PRs so merges happen once required checks pass.
+# Prereqs (repo Settings → General → Pull requests): "Allow auto-merge" enabled.
+# Branch protection on `main` should require CI jobs you trust before merge.
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-24.04
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Optional approval helps when branch rules require a review; GITHUB_TOKEN can approve same-repo PRs.
+      - name: Approve Dependabot PR
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Major semver bumps stay open for human review; patch/minor (and non-semver bumps) queue auto-merge.
+      - name: Enable auto-merge (squash)
+        # A 0.x minor bump (0.5 -> 0.6) is a breaking change under Cargo's semver, though Dependabot calls it minor:
+        # it stays open for review too (27 Oct: argon2 0.6 and rand 0.10 auto-merged and broke a downstream build).
+        if: >-
+          steps.metadata.outputs.update-type != 'version-update:semver-major' &&
+          !(startsWith(steps.metadata.outputs.previous-version, '0.') && steps.metadata.outputs.update-type == 'version-update:semver-minor')
+        # With "Allow auto-merge" off in the repo settings this step failed and left a red check on every
+        # Dependabot PR; that one refusal now ends the step with a notice (the PR is merged by hand once CI
+        # passes). Any other failure still fails the step.
+        run: |
+          if out=$(gh pr merge --auto --squash "$PR_URL" 2>&1); then
+            echo "$out"
+          elif echo "$out" | grep -q "Auto merge is not allowed"; then
+            echo "::notice::Auto-merge is off for this repository; the PR is left for a manual merge once CI passes."
+          else
+            echo "$out"
+            exit 1
+          fi
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

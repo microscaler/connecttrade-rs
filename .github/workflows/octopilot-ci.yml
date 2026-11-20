@@ -1,0 +1,50 @@
+name: Octopilot CI
+
+# The generic Octopilot pipeline for a library (detect → lint → test → lib deliverable → artifacts → release), as in
+# BRRTRouter. The shape comes from skaffold.yaml: the `connecttrade-lib` deliverable (build and test the client) and
+# the ct-mock image, built with the octopilot/rust buildpack and pushed to ttl.sh on every run; a v* tag promotes it
+# to ghcr.io/microscaler/ct-mock. integration: false — there is no Helm chart or k8s overlay to deploy.
+#
+# Checks (checks.yml) runs the gates this pipeline does not enforce: a blocking clippy (the pipeline's lint only
+# warns), clippy without default features, and the weekly spec-drift check. Releases: release.yml.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+# One run per ref: a new push cancels the previous in-flight run so builds never stack up. Tag runs are never
+# cancelled — releases always complete.
+concurrency:
+  group: octopilot-ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: Octopilot
+    # The pipeline's jobs request these; a caller that grants less fails at startup.
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      pull-requests: write
+      # write: trim-artifacts deletes old run artifacts before uploading; acceptance-promote downloads this run's
+      # build results.
+      actions: write
+    uses: octopilot/actions/.github/workflows/pipeline.yml@main
+    with:
+      op_version: v1.2.2
+      # Public repository: pull requests (forks included) run on GitHub-hosted runners; push, tag and dispatch runs use
+      # the ms02 ARC runners and their shared Rust compile cache. Outside contributors' runs need approval (repository
+      # setting).
+      runner: ${{ github.event_name == 'pull_request' && 'ubuntu-24.04' || '["self-hosted", "linux", "x64", "microscaler"]' }}
+      sccache: ${{ github.event_name != 'pull_request' }}
+      # Image build and push on GitHub-hosted runners: pushes from ms02 share its uplink with PriceWhisperer's releases.
+      artifacts_runner: ubuntu-24.04
+      integration: false
+    # Pass explicitly (not `inherit`): inherit does not reliably cross the org boundary to octopilot/actions.
+    secrets:
+      SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
