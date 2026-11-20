@@ -31,7 +31,7 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"] 
 
 [dev-dependencies]
 connecttrade = { path = "../connecttrade" }
-jsonschema = { version = "0.33", default-features = false }
+jsonschema = { version = "0.61", default-features = false }
 ureq = { version = "3", default-features = false }
 
 [lints]
