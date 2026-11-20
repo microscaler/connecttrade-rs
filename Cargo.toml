@@ -11,3 +11,46 @@ rust-version = "1.85"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# =============================================================================
+# LINTS: the Microscaler JSF-inspired profile (docs/coding-standards.md)
+# =============================================================================
+# Every crate opts in with `[lints] workspace = true`. CI runs clippy with -D warnings: "warn" here means "fails CI".
+# Generated code (crates/connecttrade/src/generated) is fixed in the generator, never by hand; its module carries the
+# few allows it needs, each with a reason.
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_qualifications = "warn"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Pedantic lints that do not fit this codebase.
+module_name_repetitions = "allow" # ops::OrderCreateRequest reads better than ops::Create
+similar_names = "allow" # flags ordinary pairs such as req/resp and tp/sl (as rerp)
+items_after_statements = "allow" # a const next to its only use reads better than one hoisted (as rerp)
+default_trait_access = "allow" # `Default::default()` as an argument is named by the parameter's type (as rerp)
+# --- Panic prevention (JSF AV Rule 208): recoverable failures are typed Results ---
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+unreachable = "warn"
+todo = "warn"
+unimplemented = "warn"
+indexing_slicing = "warn"
+# --- Error handling hygiene ---
+let_underscore_must_use = "warn"
+must_use_candidate = "warn"
+# --- Code quality ---
+allow_attributes_without_reason = "warn"
+undocumented_unsafe_blocks = "warn"
+dbg_macro = "warn"
+print_stdout = "warn" # a library does not print; the mock logs with tracing
+print_stderr = "warn"
+clone_on_ref_ptr = "warn"
+redundant_clone = "warn"
+large_futures = "warn"
+large_stack_arrays = "warn"
+float_arithmetic = "warn" # money and prices are decimal strings on the wire; the client never does float maths

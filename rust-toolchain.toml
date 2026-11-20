@@ -1,0 +1,5 @@
+# One Rust for every Microscaler repo and the octopilot/rust buildpack (its BP_RUST_TOOLCHAIN default), so CI and
+# local builds use the same compiler and the same clippy. Bump it together with BRRTRouter's.
+[toolchain]
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]

@@ -5,6 +5,15 @@
 //! `required` lists are not enforced: Connect Trade's own examples break them (`price_effect`, `legs` are null or
 //! absent), so the check is on types and enum values of what is present.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::disallowed_methods,
+    reason = "integration test: a failing test should fail loudly; it runs on a plain OS thread, never a may worker"
+)]
+
 use connecttrade::models::*;
 use connecttrade::{ops, Client, Credentials, HttpRequest, HttpResponse, Transport, TransportError, UreqTransport};
 use ct_mock::{MockConfig, MockServer};
@@ -28,7 +37,7 @@ impl Transport for Recorder {
     }
 }
 
-/// OpenAPI 3.0 schema → JSON Schema: refs to `#/definitions`, `nullable` to a null type, `required` dropped.
+/// `OpenAPI` 3.0 schema → JSON Schema: refs to `#/definitions`, `nullable` to a null type, `required` dropped.
 fn convert(v: &Value) -> Value {
     match v {
         Value::Object(m) => {
@@ -72,15 +81,15 @@ fn every_answer_of_a_session_matches_the_spec() {
     .unwrap();
     let definitions = convert(&spec["components"]["schemas"]);
 
-    let mock = MockServer::start(MockConfig::default());
+    let mock = MockServer::start(MockConfig::default()).expect("the mock starts");
     let seen = Arc::new(Mutex::new(vec![]));
-    let client = Client::new(mock.url(), Recorder { inner: UreqTransport::default(), seen: seen.clone() });
+    let client = Client::new(mock.url(), Recorder { inner: UreqTransport::default(), seen: Arc::clone(&seen) });
     let platform = Credentials::platform("mock-client-id", "mock-client-secret");
 
     // a session touching every operation
     client.send(&platform, ops::create_platform_token()).unwrap();
     let u = client.send(&platform, ops::create_user(&UserCreateRequest { user_id: "spec-user".into() })).unwrap();
-    let _ = client.send(&platform, ops::create_user(&UserCreateRequest { user_id: "spec-user".into() }));
+    client.send(&platform, ops::create_user(&UserCreateRequest { user_id: "spec-user".into() })).unwrap_err();
     client.send(&platform, ops::list_users(&Default::default())).unwrap();
     let u2 = client.send(&platform, ops::rotate_user_secret("spec-user")).unwrap();
     let creds = platform.for_user("spec-user", &u2.user_secret).unwrap();
@@ -135,7 +144,7 @@ fn every_answer_of_a_session_matches_the_spec() {
     std::thread::sleep(Duration::from_millis(200));
     let gid = bracket.order_group_id.clone().unwrap();
     client.send(&creds, ops::get_order_group(&tasty.account_id, &gid)).unwrap();
-    let _ = client.send(&creds, ops::cancel_order(&tasty.account_id, &bracket.order_id)); // 400 GROUP_LEG_NOT_CANCELLABLE
+    client.send(&creds, ops::cancel_order(&tasty.account_id, &bracket.order_id)).unwrap_err(); // 400 GROUP_LEG_NOT_CANCELLABLE
     req.cl_order_id = "spec-2".into();
     req.complex_order_parameters = None;
     req.order_limit_price = Some("1".into());
@@ -151,14 +160,14 @@ fn every_answer_of_a_session_matches_the_spec() {
     };
     let replaced = client.send(&creds, ops::replace_order(&tasty.account_id, &simple.order_id, &r)).unwrap();
     r.new_cl_order_id = "spec-2rr".into();
-    let _ = client.send(&creds, ops::replace_order(&tasty.account_id, &bracket.order_id, &r)); // 400 GROUP_LEG_NOT_REPLACEABLE
+    client.send(&creds, ops::replace_order(&tasty.account_id, &bracket.order_id, &r)).unwrap_err(); // 400 GROUP_LEG_NOT_REPLACEABLE
     std::thread::sleep(Duration::from_millis(60));
     client.send(&creds, ops::cancel_order(&tasty.account_id, &replaced.order_id)).unwrap();
     client.send(&creds, ops::get_order(&tasty.account_id, &simple.order_id)).unwrap();
     client.send(&creds, ops::cancel_order_group(&tasty.account_id, &gid)).unwrap();
-    let _ = client.send(&creds, ops::get_order(&tasty.account_id, "missing")); // 404
+    client.send(&creds, ops::get_order(&tasty.account_id, "missing")).unwrap_err(); // 404
     client.send(&creds, ops::list_orders(&Default::default())).unwrap();
-    let _ = client.send(&creds, ops::list_orders(&ops::ListOrdersQuery { limit: Some(0), ..Default::default() })); // 422
+    client.send(&creds, ops::list_orders(&ops::ListOrdersQuery { limit: Some(0), ..Default::default() })).unwrap_err(); // 422
     client.send(&creds, ops::list_positions(&Default::default())).unwrap();
     client.send(&creds, ops::list_balances(&Default::default())).unwrap();
     client.send(&creds, ops::list_transactions(&Default::default())).unwrap();

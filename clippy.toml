@@ -1,0 +1,41 @@
+# Clippy configuration: the Microscaler JSF-inspired profile (same numbers as BRRTRouter, lifeguard, sesame-idam;
+# see docs/coding-standards.md). Lint levels live in Cargo.toml under [workspace.lints]; CI runs clippy with
+# -D warnings, so a warning here fails CI.
+
+# --- JSF-aligned thresholds ---
+stack-size-threshold = 512000
+enum-variant-size-threshold = 256
+type-complexity-threshold = 300
+cognitive-complexity-threshold = 30
+missing-docs-in-crate-items = false
+too-many-arguments-threshold = 8
+too-many-lines-threshold = 200
+single-char-binding-names-threshold = 4
+
+# --- Tests may unwrap, expect, panic, print and index: a failing test should fail loudly. Production code may not.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-dbg-in-tests = true
+
+# --- No OS-blocking calls where a `may` runtime may be running ---
+# PriceWhisperer calls this client from `may` coroutines. Each item below blocks the worker thread in the kernel
+# instead of parking the coroutine, so every coroutine queued on that worker stalls behind it. The client's own
+# blocking pieces (UreqTransport, the stream session) are meant for a dedicated OS thread or for callers that bring
+# their own transport; they opt out with `#[allow(clippy::disallowed_methods, clippy::disallowed_types, reason = "...")]`
+# saying which thread they run on. Same lists as BRRTRouter and PriceWhisperer.
+disallowed-types = [
+    { path = "std::net::TcpStream", reason = "blocks the may worker thread; run on a dedicated thread or bring a may transport" },
+    { path = "std::sync::Condvar", reason = "parks the may worker thread; use may::sync::Condvar" },
+    { path = "std::sync::mpsc::Receiver", reason = "recv parks the may worker thread; use may::sync::mpsc" },
+]
+disallowed-methods = [
+    { path = "std::thread::scope", reason = "joining parks the may worker until every scoped thread ends" },
+    { path = "std::thread::JoinHandle::join", reason = "parks the may worker thread" },
+    { path = "std::net::ToSocketAddrs::to_socket_addrs", reason = "getaddrinfo blocks the may worker thread" },
+    { path = "std::net::TcpStream::connect", reason = "blocks the may worker thread" },
+    { path = "std::net::TcpStream::connect_timeout", reason = "blocks the may worker thread" },
+    { path = "std::thread::sleep", reason = "parks the may worker thread; use may::coroutine::sleep" },
+]

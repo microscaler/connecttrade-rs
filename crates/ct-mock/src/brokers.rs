@@ -15,7 +15,9 @@ pub enum ReplaceMode {
     CancelThenPlace { gap_ms: u64 },
 }
 
+/// One broker's behaviour behind Connect Trade.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools, reason = "independent facts about a broker, read one at a time")]
 pub struct Profile {
     pub broker: OrderBroker,
     pub code: &'static str,
@@ -27,12 +29,12 @@ pub struct Profile {
     pub replace_quantity: bool,
     /// Trading calls (create, replace, cancel) per minute per account; `None` for no limit.
     /// ASSUMPTION: Connect Trade passes the broker's limit through as a 429.
-    pub trading_calls_per_minute: Option<u32>,
-    /// Plain stops only in regular hours (TradeZero rejects them outside with R79/R100).
+    pub trading_calls_per_minute: Option<usize>,
+    /// Plain stops only in regular hours (`TradeZero` rejects them outside with R79/R100).
     pub stops_regular_hours_only: bool,
     /// Fills of 2 or more shares arrive in two parts.
     pub partial_fills: bool,
-    /// Connect Trade offers this broker's transactions (fees). TradeZero and Lightspeed: no.
+    /// Connect Trade offers this broker's transactions (fees). `TradeZero` and Lightspeed: no.
     pub transactions: bool,
     /// Account number prefix for mock accounts.
     pub account_prefix: &'static str,
@@ -40,6 +42,8 @@ pub struct Profile {
 
 const ALL: &[ComplexOrderClass] = &[ComplexOrderClass::Bracket, ComplexOrderClass::Oto, ComplexOrderClass::Oco];
 
+/// The profile of `broker`; brokers without one get a permissive default.
+#[must_use]
 pub fn profile(broker: &OrderBroker) -> Profile {
     let base = Profile {
         broker: broker.clone(),
@@ -92,6 +96,8 @@ pub fn profile(broker: &OrderBroker) -> Profile {
 }
 
 impl Profile {
+    /// Whether this broker takes `class` orders for `instrument`.
+    #[must_use]
     pub fn accepts(&self, class: &ComplexOrderClass, instrument: &Instrument) -> bool {
         self.complex.contains(class) && !self.complex_excluded_instruments.contains(instrument)
     }

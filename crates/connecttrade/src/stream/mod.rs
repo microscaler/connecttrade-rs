@@ -1,6 +1,6 @@
 //! The Streaming Broker API: order, position and balance updates over WebSocket (`wss://stream.connecttrade.com`).
 //!
-//! Not in the OpenAPI spec; written from Connect Trade's docs ("Streaming Broker API"). The flow:
+//! Not in the `OpenAPI` spec; written from Connect Trade's docs ("Streaming Broker API"). The flow:
 //! 1. connect; the server sends `welcome` with a `session_id` (quote it to Connect Trade support);
 //! 2. `authenticate` within 30 seconds, with client credentials or an access token (never both);
 //! 3. `subscribe` to topics; 4. `subscribe_user` per user (platform sessions only; at most 500 per session);

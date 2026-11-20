@@ -42,6 +42,7 @@ let order = client.send(&user, ops::create_order(&OrderCreateRequest {
 
 - **Generated, never hand-edited.** `crates/connecttrade/src/generated/` comes from `spec/openapi.json` (Connect Trade's, as published) and `spec/overlay.json` (ours: operation names and the corrections the spec needs, each with its reason; see [spec/README.md](spec/README.md)). CI fails when the two drift apart, and checks every Monday whether Connect Trade published a new spec.
 - **Sans-IO.** Every operation returns a `Request<T>`: method, path, query, body, the credentials it needs and the type a 2xx decodes to. `Request::to_http` and `Request::parse` are the two halves around any I/O; `Client` joins them with a `Transport`. The built-in `UreqTransport` is blocking HTTPS over rustls; a caller with its own runtime (coroutines, async) brings its own transport.
+- **Panic-free.** No `unwrap`, `expect`, `panic!` or indexing outside tests; body encoding failures are typed errors too.
 - **Did it happen?** Every error answers the one question an order path has after a failed change: `Error::may_have_happened()`. A request that was never sent (connect or TLS failed) is safe to retry; one that timed out, broke, got a 5xx or a 2xx we could not decode must be looked up by its `cl_order_id`, never sent again.
 - **Lenient where the wire is.** Response fields are `Option` except identifiers, because Connect Trade's examples leave out or null fields its spec calls required; decimals and timestamps stay strings, as sent; every enum has an `Unknown(String)` catch-all. A broker quirk never turns a placed order into a decode error.
 - **Connect Trade's error codes** (`UNSUPPORTED_ORDER_CLASS`, `GROUP_LEG_NOT_REPLACEABLE`, `GROUP_LEG_NOT_CANCELLABLE`) are parsed into `ErrorCode`.
@@ -69,6 +70,10 @@ It accepts the platform credentials `mock-client-id` / `mock-client-secret` (or 
 - the client against the mock: every behaviour above, end to end over HTTP and WebSocket;
 - every example in Connect Trade's spec and docs, decoded into the generated types (and request examples round-tripped);
 - every answer of a scripted mock session validated against **the spec's own JSON schemas**, so the mock cannot drift from the spec through types it shares with the client.
+
+## Coding standards
+
+The Microscaler JSF-inspired profile, as in BRRTRouter, lifeguard, sesame-idam and rerp: no panics or unsafe in production code, bounded complexity, pedantic clippy with `-D warnings`, every `#[allow]` with a reason, no OS-blocking calls where a `may` runtime may run, no file over 512 KiB and no hand-written Rust file over 500 lines. See [docs/coding-standards.md](docs/coding-standards.md); the pre-commit and pre-push hooks run the same checks as CI.
 
 ## Licence
 

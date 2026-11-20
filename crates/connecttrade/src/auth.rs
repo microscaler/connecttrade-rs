@@ -47,7 +47,7 @@ impl Credentials {
     pub(crate) fn headers(&self, scope: Scope) -> Result<Vec<(&'static str, String)>, &'static str> {
         match (self, scope) {
             (Credentials::Bearer(t), _) => Ok(vec![("authorization", format!("Bearer {t}"))]),
-            (Credentials::Platform(p), Scope::Platform) | (Credentials::User(p, _), Scope::Platform) => {
+            (Credentials::Platform(p) | Credentials::User(p, _), Scope::Platform) => {
                 Ok(vec![("client-id", p.client_id.clone()), ("client-secret", p.client_secret.clone())])
             }
             (Credentials::User(p, u), Scope::User) => Ok(vec![
@@ -58,6 +58,18 @@ impl Credentials {
             ]),
             (Credentials::Platform(_), Scope::User) => Err("user credentials"),
         }
+    }
+}
+
+impl std::fmt::Debug for PlatformCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlatformCredentials").field("client_id", &self.client_id).finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for UserCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserCredentials").field("user_id", &self.user_id).finish_non_exhaustive()
     }
 }
 

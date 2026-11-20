@@ -1,6 +1,14 @@
 //! Every example in Connect Trade's own spec decodes into the generated types, and every request example
 //! round-trips. When Connect Trade changes a payload, this is the first test to fail.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    reason = "integration tests: a failing test should fail loudly"
+)]
+
 use connecttrade::models::*;
 use connecttrade::ops::OPERATIONS;
 use serde::de::DeserializeOwned;
