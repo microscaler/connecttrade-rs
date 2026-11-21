@@ -15,7 +15,7 @@
 )]
 
 use connecttrade::models::*;
-use connecttrade::{ops, Client, Credentials, HttpRequest, HttpResponse, Transport, TransportError, UreqTransport};
+use connecttrade::{ops, Client, Credentials, HttpRequest, HttpResponse, MayTransport, Transport, TransportError};
 use ct_mock::{MockConfig, MockServer};
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, Mutex};
@@ -25,7 +25,7 @@ use std::time::Duration;
 type Seen = Arc<Mutex<Vec<(&'static str, u16, Vec<u8>)>>>;
 
 struct Recorder {
-    inner: UreqTransport,
+    inner: MayTransport,
     seen: Seen,
 }
 
@@ -83,7 +83,10 @@ fn every_answer_of_a_session_matches_the_spec() {
 
     let mock = MockServer::start(MockConfig::default()).expect("the mock starts");
     let seen = Arc::new(Mutex::new(vec![]));
-    let client = Client::new(mock.url(), Recorder { inner: UreqTransport::default(), seen: Arc::clone(&seen) });
+    let client = Client::new(
+        mock.url(),
+        Recorder { inner: MayTransport::with_default_timeouts().unwrap(), seen: Arc::clone(&seen) },
+    );
     let platform = Credentials::platform("mock-client-id", "mock-client-secret");
 
     // a session touching every operation
@@ -108,7 +111,9 @@ fn every_answer_of_a_session_matches_the_spec() {
                 }),
             )
             .unwrap();
-        ureq::get(&link.connection_request_url).call().unwrap();
+        let visited =
+            may_minihttp::client::Client::new().unwrap().get(&link.connection_request_url).unwrap().send().unwrap();
+        assert_eq!(visited.status().as_u16(), 200);
     }
     for a in client.send(&creds, ops::list_accounts(&Default::default())).unwrap() {
         client.send(&creds, ops::get_account(&a.account_id)).unwrap();

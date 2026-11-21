@@ -22,9 +22,8 @@ allow-dbg-in-tests = true
 
 # --- No OS-blocking calls where a `may` runtime may be running ---
 # PriceWhisperer calls this client from `may` coroutines. Each item below blocks the worker thread in the kernel
-# instead of parking the coroutine, so every coroutine queued on that worker stalls behind it. The client's own
-# blocking pieces (UreqTransport, the stream session) are meant for a dedicated OS thread or for callers that bring
-# their own transport; they opt out with `#[allow(clippy::disallowed_methods, clippy::disallowed_types, reason = "...")]`
+# instead of parking the coroutine, so every coroutine queued on that worker stalls behind it. The client's own I/O is
+# may_minihttp on `may` sockets. Code that runs on a dedicated OS thread (the mock's start-up, the tests) opts out with `#[allow(clippy::disallowed_methods, clippy::disallowed_types, reason = "...")]`
 # saying which thread they run on. Same lists as BRRTRouter and PriceWhisperer.
 disallowed-types = [
     { path = "std::net::TcpStream", reason = "blocks the may worker thread; run on a dedicated thread or bring a may transport" },

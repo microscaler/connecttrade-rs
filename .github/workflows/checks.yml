@@ -4,6 +4,7 @@ name: Checks
 # - a blocking clippy: the pipeline's lint reports clippy warnings without failing, and the JSF profile
 #   (docs/coding-standards.md) must fail the build;
 # - clippy without default features (models and sans-IO requests only);
+# - one HTTP client: may_minihttp (scripts/check-http-clients.sh);
 # - every Monday, whether Connect Trade has published a new spec.
 # fmt, the file-size rules and codegen drift run in the pipeline's lint (pre-commit); tests in its Test job.
 
@@ -40,6 +41,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Clippy without default features
         run: cargo clippy -p connecttrade --no-default-features -- -D warnings
+      - name: One HTTP client (may_minihttp)
+        run: scripts/check-http-clients.sh
 
   spec-drift:
     name: Connect Trade spec drift

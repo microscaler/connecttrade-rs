@@ -9,7 +9,8 @@ The Microscaler JSF-inspired profile, the same as BRRTRouter, lifeguard, sesame-
 | `rust-toolchain.toml` | The shared Microscaler toolchain (1.99.0), so CI, local builds and the other repos use the same compiler and clippy. |
 | `rustfmt.toml` | 120 columns; the code generator formats with the same file. |
 | `scripts/check-file-sizes.sh` | The large-file rules. |
-| `.pre-commit-config.yaml` | fmt, file sizes and codegen drift on commit; clippy and tests on push; Conventional Commits. |
+| `scripts/check-http-clients.sh` | One HTTP client: `may_minihttp`. |
+| `.pre-commit-config.yaml` | fmt, file sizes, the HTTP-client check and codegen drift on commit; clippy and tests on push; Conventional Commits. |
 
 ## The rules
 
@@ -25,7 +26,9 @@ The Microscaler JSF-inspired profile, the same as BRRTRouter, lifeguard, sesame-
 
 **No float arithmetic.** Prices, quantities and cash are decimal strings on the wire. The client never does arithmetic on them; the mock uses `rust_decimal`.
 
-**No OS-blocking calls where a `may` runtime may run.** `PriceWhisperer` calls this client from `may` coroutines, where a blocking call stalls every coroutine on that worker. `clippy.toml` bans `std::net::TcpStream`, blocking `connect`, `to_socket_addrs`, `thread::sleep`, `JoinHandle::join`, `thread::scope`, `Condvar` and `mpsc::Receiver`, as in BRRTRouter and `PriceWhisperer`. Code that runs on its own OS thread opts out with an allow whose reason names that thread: the stream session, `MockServer::start`, and the tests. `UreqTransport` blocks by design and says so; on `may`, bring a transport built on `may` sockets.
+**No OS-blocking calls where a `may` runtime may run.** `PriceWhisperer` calls this client from `may` coroutines, where a blocking call stalls every coroutine on that worker. `clippy.toml` bans `std::net::TcpStream`, blocking `connect`, `to_socket_addrs`, `thread::sleep`, `JoinHandle::join`, `thread::scope`, `Condvar` and `mpsc::Receiver`, as in BRRTRouter and `PriceWhisperer`. Code that runs on its own OS thread opts out with an allow whose reason names that thread: `MockServer::start` and the tests. The client's own I/O is on `may` sockets (`MayTransport`, the stream session), so it parks a coroutine, never its worker; the one exception is name resolution through the operating system, which a strict caller replaces with a may-aware resolver (`MayTransport::with_client`).
+
+**One HTTP client: `may_minihttp`.** Every HTTP request this repository makes goes through `may_minihttp`, the Microscaler fork that BRRTRouter and `PriceWhisperer` use: the REST transport (`MayTransport`), the stream's opening handshake (`HttpClient::upgrade`; `tungstenite` only frames messages on the upgraded connection, built without its `handshake` feature), and the tests' own calls to the mock. `scripts/check-http-clients.sh` fails when the client crate does not depend on `may_minihttp`, when its `tungstenite` has `handshake`, or when any crate in the workspace, tests and build scripts included, brings another HTTP client (`ureq`, `reqwest`, `isahc`, `curl`, hyper's client...). The mock is a server (axum) and is not covered. `may_minihttp` is pinned by release tag.
 
 **Debuggable, never leaky.** Every public type implements `Debug`. Credential types print ids only, never secrets (tested).
 

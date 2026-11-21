@@ -32,7 +32,8 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"] 
 [dev-dependencies]
 connecttrade = { path = "../connecttrade" }
 jsonschema = { version = "0.33", default-features = false }
-ureq = { version = "3", default-features = false }
+# Test calls to the mock go through may_minihttp, the one HTTP client in this repository; the mock itself stays axum.
+may_minihttp = { git = "https://github.com/microscaler/may_minihttp.git", tag = "v0.1.15", features = ["client"] }
 
 [lints]
 workspace = true

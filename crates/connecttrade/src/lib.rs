@@ -4,7 +4,7 @@
 //! - [`models`] and [`ops`] are generated from Connect Trade's `OpenAPI` spec (`spec/openapi.json`) and our overlay
 //!   (`spec/overlay.json`) by `cargo xtask codegen`. Never edit them by hand.
 //! - Every operation returns a sans-IO [`Request`]: build it, send it with any [`Transport`], parse the answer.
-//!   [`Client`] does the three steps with the built-in [`UreqTransport`] or your own.
+//!   [`Client`] does the three steps with the built-in [`MayTransport`] (`may_minihttp`) or your own.
 //! - [`stream`] is the Streaming Broker API (orders, positions, balances over WebSocket), which the spec does not
 //!   describe; it is written by hand from Connect Trade's docs.
 //!
@@ -45,6 +45,6 @@ pub use auth::{Credentials, PlatformCredentials, UserCredentials};
 pub use client::{Client, PRODUCTION_URL, STREAM_URL};
 pub use error::{ApiError, Error, ErrorCode, TransportError};
 pub use request::{HttpRequest, HttpResponse, Method, Request, Scope};
+#[cfg(feature = "transport")]
+pub use transport::MayTransport;
 pub use transport::Transport;
-#[cfg(feature = "ureq")]
-pub use transport::UreqTransport;

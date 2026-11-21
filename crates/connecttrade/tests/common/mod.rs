@@ -10,7 +10,7 @@
 
 use connecttrade::models::*;
 use connecttrade::stream::{StreamAuth, StreamConfig};
-use connecttrade::{ops, Client, Credentials, HttpRequest, HttpResponse, Transport, TransportError, UreqTransport};
+use connecttrade::{ops, Client, Credentials, HttpRequest, HttpResponse, MayTransport, Transport, TransportError};
 use ct_mock::{MockConfig, MockServer};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -32,7 +32,8 @@ pub struct Trader {
 
 pub fn world() -> World {
     let mock = MockServer::start(MockConfig::default()).expect("the mock starts");
-    let transport: Arc<dyn Transport> = Arc::new(UreqTransport::new(Duration::from_secs(2), Duration::from_secs(5)));
+    let transport: Arc<dyn Transport> =
+        Arc::new(MayTransport::new(Duration::from_secs(2), Duration::from_secs(5)).unwrap());
     let client = Client::new(mock.url(), transport);
     World { mock, client, platform: Credentials::platform("mock-client-id", "mock-client-secret") }
 }
@@ -98,14 +99,26 @@ pub fn uuid_like() -> String {
     format!("{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst))
 }
 
+/// The tests' own HTTP client (the mock's OAuth links and controls): `may_minihttp`, as the transport.
+pub fn http() -> &'static may_minihttp::client::Client {
+    static HTTP: std::sync::OnceLock<may_minihttp::client::Client> = std::sync::OnceLock::new();
+    HTTP.get_or_init(|| may_minihttp::client::Client::new().expect("an HTTP client"))
+}
+
 pub fn visit(url: &str) {
-    let agent: ureq::Agent = ureq::Agent::config_builder().http_status_as_error(false).build().into();
-    let r = agent.get(url).call().unwrap();
+    let r = http().get(url).unwrap().send().unwrap();
     assert_eq!(r.status().as_u16(), 200, "oauth link {url}");
 }
 
 pub fn post_json(url: &str, v: &serde_json::Value) {
-    let r = ureq::post(url).send_json(v).unwrap();
+    let r = http()
+        .post(url)
+        .unwrap()
+        .header_str("content-type", "application/json")
+        .unwrap()
+        .body(serde_json::to_vec(v).unwrap())
+        .send()
+        .unwrap();
     assert_eq!(r.status().as_u16(), 200);
 }
 
@@ -151,7 +164,7 @@ pub fn replace(t: &Trader, new_cl: &str) -> OrderReplaceRequest {
 
 /// A transport that adds the mock's fault headers, standing in for a network that misbehaves.
 pub struct Faulty {
-    pub inner: UreqTransport,
+    pub inner: MayTransport,
     pub headers: Vec<(&'static str, String)>,
 }
 

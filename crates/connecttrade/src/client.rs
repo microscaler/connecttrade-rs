@@ -16,10 +16,10 @@ pub const STREAM_URL: &str = "wss://stream.connecttrade.com";
 /// ```no_run
 /// use connecttrade::{Client, Credentials, ops, models::*};
 /// let platform = Credentials::platform("client-id", "client-secret");
-/// let client = Client::new(connecttrade::PRODUCTION_URL, connecttrade::UreqTransport::default());
-/// let user = platform.for_user("user-1", "user-secret").unwrap();
+/// let client = Client::new(connecttrade::PRODUCTION_URL, connecttrade::MayTransport::with_default_timeouts()?);
+/// let user = platform.for_user("user-1", "user-secret").ok_or("platform credentials needed")?;
 /// let accounts = client.send(&user, ops::list_accounts(&Default::default()))?;
-/// # Ok::<(), connecttrade::Error>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub struct Client<T: Transport> {
     base_url: String,

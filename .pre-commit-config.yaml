@@ -31,6 +31,13 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: http-clients
+        name: one HTTP client (may_minihttp)
+        entry: scripts/check-http-clients.sh
+        language: system
+        files: (^|/)Cargo\.(toml|lock)$
+        pass_filenames: false
+
       - id: codegen-drift
         name: generated code matches spec and overlay
         entry: cargo xtask codegen --check

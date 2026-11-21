@@ -10,24 +10,28 @@ keywords = ["trading", "broker", "connecttrade", "api-client"]
 categories = ["api-bindings", "finance"]
 
 [features]
-default = ["ureq", "stream"]
-# Blocking HTTPS transport (rustls).
-ureq = ["dep:ureq"]
-# The Streaming Broker API (wss://stream.connecttrade.com): orders, positions, balances.
-stream = ["dep:tungstenite", "dep:rustls", "dep:webpki-roots"]
+default = ["transport", "stream"]
+# MayTransport: HTTPS over the may_minihttp client. The only HTTP client this crate uses (scripts/check-http-clients.sh).
+transport = ["dep:may_minihttp", "dep:http"]
+# The order stream: may_minihttp does the HTTP upgrade, tungstenite only frames (no "handshake": no HTTP client of its own).
+stream = ["dep:may_minihttp", "dep:http", "dep:tungstenite", "dep:sha1", "dep:data-encoding", "dep:getrandom"]
 
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = "2"
-ureq = { version = "3", optional = true, default-features = false, features = ["rustls", "json"] }
-tungstenite = { version = "0.29", optional = true, default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
-rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
-webpki-roots = { version = "1", optional = true }
+# Pinned by release tag. v0.1.15 adds HttpClient::upgrade (microscaler/may_minihttp#20).
+may_minihttp = { git = "https://github.com/microscaler/may_minihttp.git", tag = "v0.1.15", optional = true, features = ["client"] }
+http = { version = "0.2", optional = true }
+tungstenite = { version = "0.29", optional = true, default-features = false }
+sha1 = { version = "0.10", optional = true }
+data-encoding = { version = "2", optional = true }
+getrandom = { version = "0.3", optional = true }
 
 [dev-dependencies]
 ct-mock = { path = "../ct-mock" }
-ureq = { version = "3", default-features = false, features = ["json"] }
+# The tests' own calls to the mock (OAuth link, price moves) go through the same HTTP client.
+may_minihttp = { git = "https://github.com/microscaler/may_minihttp.git", tag = "v0.1.15", features = ["client"] }
 
 [lints]
 workspace = true
