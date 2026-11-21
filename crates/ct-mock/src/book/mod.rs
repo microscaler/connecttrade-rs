@@ -14,7 +14,7 @@ use connecttrade::models::{
 };
 use connecttrade::stream::ServerMessage;
 use rust_decimal::Decimal;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 /// Cash in a new account.
@@ -229,6 +229,12 @@ pub struct Book {
     /// Access tokens: the user they act for (none for a platform token) and when they expire.
     pub tokens: HashMap<String, (Option<String>, Instant)>,
     pub rate: HashMap<String, VecDeque<Instant>>,
+    /// The window [`Profile::trading_calls_per_minute`] counts in.
+    pub rate_window: Duration,
+    /// Orders fill only on `/mock/trade` ([`crate::MockConfig::tape`]).
+    pub tape: bool,
+    /// Symbols that cannot be borrowed for a short sale.
+    pub hard_to_borrow: HashSet<String>,
     pub timings: Timings,
     /// Updates for the stream: (user, message).
     pub outbox: Vec<(String, ServerMessage)>,
@@ -272,10 +278,22 @@ impl Book {
             session: Session::Regular,
             tokens: HashMap::new(),
             rate: HashMap::new(),
+            rate_window: Duration::from_secs(60),
+            tape: false,
+            hard_to_borrow: HashSet::new(),
             timings,
             outbox: vec![],
             next_partial: HashMap::new(),
         }
+    }
+
+    /// The market a [`crate::MockConfig`] asks for: tape or continuous, what cannot be borrowed, the rate window.
+    #[must_use]
+    pub fn with_market(mut self, config: &crate::MockConfig) -> Self {
+        self.tape = config.tape;
+        self.hard_to_borrow = config.hard_to_borrow.iter().cloned().collect();
+        self.rate_window = config.rate_window;
+        self
     }
 
     /// The current price of `symbol`.
@@ -326,8 +344,9 @@ impl Book {
     pub fn rate_limited(&mut self, account_id: &str, p: &Profile) -> bool {
         let Some(limit) = p.trading_calls_per_minute else { return false };
         let now = Instant::now();
+        let window = self.rate_window;
         let q = self.rate.entry(account_id.to_string()).or_default();
-        while q.front().is_some_and(|t| now.duration_since(*t) > Duration::from_secs(60)) {
+        while q.front().is_some_and(|t| now.duration_since(*t) > window) {
             q.pop_front();
         }
         if q.len() >= limit {

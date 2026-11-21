@@ -60,7 +60,8 @@ Features: `transport` (`MayTransport`) and `stream` (the WebSocket client), both
 - Per-broker profiles: which brokers take groups, which cannot change quantity on a replace (Tradier), call limits (Tradier: 60 trading calls a minute), which brokers have no transactions (TradeZero, Lightspeed).
 - The stream at `/stream`, with the 10-session and 500-user limits.
 - Faults per request: `X-Auth-Failure`, `X-Service-Unavailable`, `X-Rate-Limit`, and `X-Mock-Delay-Before-Ms` / `X-Mock-Delay-After-Ms` for a timeout before or after the change was made.
-- Controls: `POST /mock/prices`, `POST /mock/session` (`pre`, `regular`, `post`), `POST /mock/connections/{id}/break`, `POST /mock/reset`.
+- Controls: `POST /mock/prices`, `POST /mock/session` (`pre`, `regular`, `post`; `new_day` expires every open day order first), `POST /mock/connections/{id}/break`, `POST /mock/reset`.
+- A market for a conformance suite (`MockConfig { tape: true, .. }`): orders fill only when `POST /mock/trade` (`symbol`, `price`, optional `size`) says the market traded, once per trade and in at most its size; outside regular hours only `DAY+`/`GTC+` orders trade; `hard_to_borrow` symbols refuse a short sale with a 400; `rate_window` shortens the minute a broker's trading-call limit counts in.
 
 It accepts the platform credentials `mock-client-id` / `mock-client-secret` (or `CT_MOCK_CLIENT_ID` / `CT_MOCK_CLIENT_SECRET`). The image is built by the Octopilot pipeline with the octopilot/rust buildpack (see `skaffold.yaml`): every run pushes it to ttl.sh, and a release promotes it to `ghcr.io/microscaler/ct-mock:vX.Y.Z`.
 

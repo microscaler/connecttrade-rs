@@ -31,7 +31,11 @@ pub struct Trader {
 }
 
 pub fn world() -> World {
-    let mock = MockServer::start(MockConfig::default()).expect("the mock starts");
+    world_with(MockConfig::default())
+}
+
+pub fn world_with(config: MockConfig) -> World {
+    let mock = MockServer::start(config).expect("the mock starts");
     let transport: Arc<dyn Transport> =
         Arc::new(MayTransport::new(Duration::from_secs(2), Duration::from_secs(5)).unwrap());
     let client = Client::new(mock.url(), transport);

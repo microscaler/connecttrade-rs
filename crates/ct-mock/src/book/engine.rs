@@ -1,8 +1,8 @@
 //! The order engine: acknowledgements, cancels, replaces, stop triggers, fills, and the group rules that follow.
 
-use super::{id, now_str, Book, FillRec, Order, Txn, FEE_PER_SHARE};
+use super::{id, now_str, Book, FillRec, Order, Session, Txn, FEE_PER_SHARE};
 use crate::brokers::{profile, Profile, ReplaceMode};
-use connecttrade::models::{GroupRole, GroupStatus, NormalizedStatus, OrderType, TransactionType};
+use connecttrade::models::{GroupRole, GroupStatus, NormalizedStatus, OrderTif, OrderType, TransactionType};
 use rust_decimal::Decimal;
 use std::time::{Duration, Instant};
 
@@ -49,7 +49,85 @@ impl Book {
                 }
                 self.set_status(&oid, NormalizedStatus::Working, "accepted");
             }
-            self.try_fill(&oid, now);
+            // on a tape, only a trade fills
+            if !self.tape {
+                self.try_fill(&oid, now);
+            }
+        }
+    }
+
+    /// Whether `o` may trade in the session the market is in: outside regular hours only an order whose time in
+    /// force says so (`DAY+`, `GTC+`).
+    fn in_session(&self, o: &Order) -> bool {
+        self.session == Session::Regular || matches!(o.tif, OrderTif::DayPlus | OrderTif::GtcPlus)
+    }
+
+    /// The market trades once at `price` (`POST /mock/trade`): every order the price reaches fills, oldest first,
+    /// for at most `size` shares between them (no limit when `None`). Orders a fill releases (a bracket's exits)
+    /// wait for the next trade. A profile that fills in parts fills each order in two parts, both at this trade.
+    pub fn trade(&mut self, symbol: &str, price: Decimal, size: Option<Decimal>) {
+        self.prices.insert(symbol.to_string(), price);
+        // what is due now (acknowledgements, cancels, replaces) happens before the trade
+        self.tick();
+        let candidates: Vec<String> = self
+            .order_seq
+            .iter()
+            .filter(|oid| {
+                self.orders.get(*oid).is_some_and(|o| {
+                    o.symbol.as_deref() == Some(symbol)
+                        && !o.contingent
+                        && matches!(
+                            o.status,
+                            NormalizedStatus::Working
+                                | NormalizedStatus::PartiallyFilled
+                                | NormalizedStatus::PendingReplace
+                        )
+                })
+            })
+            .cloned()
+            .collect();
+        let mut left = size;
+        for oid in candidates {
+            if left.is_some_and(|l| l <= Decimal::ZERO) {
+                break;
+            }
+            let Some(o) = self.orders.get(&oid).cloned() else { continue };
+            if !self.in_session(&o) {
+                continue;
+            }
+            let Some(px) = self.fill_price(&oid, &o) else { continue };
+            let remaining = o.qty - o.filled_qty();
+            let qty = left.map_or(remaining, |l| l.min(remaining));
+            if qty <= Decimal::ZERO {
+                continue;
+            }
+            let p = profile(&o.broker);
+            let first = if p.partial_fills && o.fills.is_empty() && qty >= Decimal::TWO {
+                (qty * FIRST_PART).floor()
+            } else {
+                qty
+            };
+            self.fill(&oid, first, px, &p);
+            if first < qty {
+                self.fill(&oid, qty - first, px, &p);
+            }
+            left = left.map(|l| l - qty);
+        }
+    }
+
+    /// A new trading day: every open day order expires (`DAY`, `DAY+`, and what came without a time in force).
+    pub fn new_day(&mut self) {
+        let expiring: Vec<String> = self
+            .order_seq
+            .iter()
+            .filter(|oid| {
+                self.orders.get(*oid).is_some_and(|o| o.open() && !matches!(o.tif, OrderTif::Gtc | OrderTif::GtcPlus))
+            })
+            .cloned()
+            .collect();
+        for oid in expiring {
+            self.set_status(&oid, NormalizedStatus::Expired, "expired");
+            self.after_terminal(&oid);
         }
     }
 
@@ -87,7 +165,7 @@ impl Book {
             o.status,
             NormalizedStatus::Working | NormalizedStatus::PartiallyFilled | NormalizedStatus::PendingReplace
         );
-        if !fillable || self.next_partial.get(oid).is_some_and(|t| now < *t) {
+        if !fillable || !self.in_session(&o) || self.next_partial.get(oid).is_some_and(|t| now < *t) {
             return;
         }
         let Some(price) = self.fill_price(oid, &o) else { return };

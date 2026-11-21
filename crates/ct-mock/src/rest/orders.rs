@@ -191,6 +191,12 @@ pub(crate) async fn create_order(State(s): State<Arc<AppState>>, headers: Header
         return Err(err(StatusCode::TOO_MANY_REQUESTS, format!("RATE_LIMITED: {} trading call limit reached", p.code)));
     }
     let t = template(&book, &req, &account, &p)?;
+    // ASSUMPTION: a short sale the broker cannot borrow for is refused on the create, as a 400 with the broker's
+    // words, rather than accepted and rejected after
+    if t.side == Side::SellShort && t.symbol.as_ref().is_some_and(|x| book.hard_to_borrow.contains(x)) {
+        let sym = t.symbol.unwrap_or_default();
+        return Err(bad(format!("SHORT_SALE_NOT_ALLOWED: {sym} is not available to borrow")));
+    }
     if let Some(c) = &req.complex_order_parameters {
         return place_group(&s, &mut book, &t, c);
     }

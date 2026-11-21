@@ -32,7 +32,8 @@ pub(crate) async fn set_prices(State(s): State<Arc<AppState>>, Json(v): Json<Has
     ok(StatusCode::OK, json!({ "ok": true }))
 }
 
-/// `POST /mock/session` `{"session": "pre" | "regular" | "post"}`.
+/// `POST /mock/session` `{"session": "pre" | "regular" | "post", "new_day"?: true}`. With `new_day`, the day ends
+/// first: every open day order expires.
 pub(crate) async fn set_session(State(s): State<Arc<AppState>>, Json(v): Json<Value>) -> R {
     let session = match v.get("session").and_then(Value::as_str) {
         Some("pre") => Session::Pre,
@@ -40,7 +41,36 @@ pub(crate) async fn set_session(State(s): State<Arc<AppState>>, Json(v): Json<Va
         Some("post") => Session::Post,
         _ => return Err(bad("session must be pre, regular or post")),
     };
-    s.book().session = session;
+    let mut b = s.book();
+    if v.get("new_day").and_then(Value::as_bool) == Some(true) {
+        b.new_day();
+    }
+    b.session = session;
+    s.flush(&mut b);
+    ok(StatusCode::OK, json!({ "ok": true }))
+}
+
+fn decimal(v: Option<&Value>, what: &str) -> Result<Option<Decimal>, axum::response::Response> {
+    let text = match v {
+        None | Some(Value::Null) => return Ok(None),
+        Some(Value::String(x)) => x.clone(),
+        Some(Value::Number(n)) => n.to_string(),
+        Some(_) => return Err(bad(format!("bad {what}"))),
+    };
+    Decimal::from_str(&text).map(Some).map_err(|_| bad(format!("bad {what}: {text}")))
+}
+
+/// `POST /mock/trade` `{"symbol": "AAPL", "price": "190.5", "size"?: 4}`: the market trades once (tape mode).
+pub(crate) async fn trade(State(s): State<Arc<AppState>>, Json(v): Json<Value>) -> R {
+    let symbol = v.get("symbol").and_then(Value::as_str).ok_or_else(|| bad("symbol is required"))?.to_string();
+    let price = decimal(v.get("price"), "price")?.ok_or_else(|| bad("price is required"))?;
+    let size = decimal(v.get("size"), "size")?;
+    let mut b = s.book();
+    if !b.tape {
+        return Err(bad("the mock is not a tape: start it with MockConfig::tape, or set prices with /mock/prices"));
+    }
+    b.trade(&symbol, price, size);
+    s.flush(&mut b);
     ok(StatusCode::OK, json!({ "ok": true }))
 }
 
@@ -57,6 +87,10 @@ pub(crate) async fn break_connection(State(s): State<Arc<AppState>>, Path(cid): 
 pub(crate) async fn reset(State(s): State<Arc<AppState>>) -> R {
     let mut b = s.book();
     let timings = b.timings.clone();
+    let (tape, hard_to_borrow, rate_window) = (b.tape, b.hard_to_borrow.clone(), b.rate_window);
     *b = Book::new(timings);
+    b.tape = tape;
+    b.hard_to_borrow = hard_to_borrow;
+    b.rate_window = rate_window;
     ok(StatusCode::OK, json!({ "ok": true }))
 }
