@@ -17,7 +17,8 @@
 //! - faults per request: `X-Auth-Failure`, `X-Service-Unavailable`, `X-Rate-Limit` (as `PriceWhisperer`'s
 //!   pact-mock-server), `X-Mock-Delay-Before-Ms` and `X-Mock-Delay-After-Ms` (a timeout before or after the change).
 //!
-//! Controls: `POST /mock/prices`, `POST /mock/session`, `POST /mock/connections/{id}/break`, `POST /mock/reset`.
+//! Controls: `POST /mock/prices`, `POST /mock/trade` (with [`MockConfig::tape`]), `POST /mock/session`,
+//! `POST /mock/connections/{id}/break`, `POST /mock/reset`.
 
 #![allow(
     clippy::result_large_err,
@@ -49,6 +50,14 @@ pub struct MockConfig {
     pub auth_timeout: Duration,
     /// How often the order engine runs.
     pub tick: Duration,
+    /// The market as a tape: orders fill only when `POST /mock/trade` says the market traded, once per trade and
+    /// in at most the trade's size (the shape of `PriceWhisperer`'s conformance suite). Off: a price set through
+    /// `/mock/prices` fills what it crosses, and goes on filling what is placed at it later.
+    pub tape: bool,
+    /// Symbols the broker will not lend: a short sale in one is refused.
+    pub hard_to_borrow: Vec<String>,
+    /// The window a broker's trading-call limit counts in: a minute at the brokers, shorter for a test.
+    pub rate_window: Duration,
 }
 
 impl Default for MockConfig {
@@ -59,6 +68,9 @@ impl Default for MockConfig {
             timings: Timings::default(),
             auth_timeout: Duration::from_secs(30),
             tick: Duration::from_millis(5),
+            tape: false,
+            hard_to_borrow: Vec::new(),
+            rate_window: Duration::from_secs(60),
         }
     }
 }
@@ -100,7 +112,7 @@ impl AppState {
 pub fn state(config: MockConfig) -> Arc<AppState> {
     let (events, _) = broadcast::channel(4096);
     Arc::new(AppState {
-        book: Mutex::new(Book::new(config.timings.clone())),
+        book: Mutex::new(Book::new(config.timings.clone()).with_market(&config)),
         config,
         events,
         platform_sessions: AtomicUsize::new(0),
@@ -138,6 +150,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/mock/oauth/{link}", get(platform::oauth))
         .route("/mock/prices", post(controls::set_prices))
         .route("/mock/session", post(controls::set_session))
+        .route("/mock/trade", post(controls::trade))
         .route("/mock/connections/{connection_id}/break", post(controls::break_connection))
         .route("/mock/reset", post(controls::reset))
         .route("/health", get(health))
