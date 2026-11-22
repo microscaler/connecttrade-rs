@@ -27,6 +27,7 @@
 
 pub mod book;
 pub mod brokers;
+pub mod fees;
 pub mod rest;
 pub mod stream;
 

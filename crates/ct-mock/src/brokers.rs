@@ -37,7 +37,8 @@ pub struct Profile {
     pub stops_regular_hours_only: bool,
     /// Fills of 2 or more shares arrive in two parts.
     pub partial_fills: bool,
-    /// Connect Trade offers this broker's transactions (fees). `TradeZero` and Lightspeed: no.
+    /// Connect Trade offers this broker's transactions (fees). `TradeZero` and Lightspeed: no. `TradeZero`'s fees
+    /// are still charged to cash, from its published schedule ([`crate::fees`]).
     pub transactions: bool,
     /// Account number prefix for mock accounts.
     pub account_prefix: &'static str,
