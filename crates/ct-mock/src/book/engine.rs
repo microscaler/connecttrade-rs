@@ -2,7 +2,9 @@
 
 use super::{id, now_str, Book, FillRec, Order, Session, Txn, FEE_PER_SHARE};
 use crate::brokers::{profile, Profile, ReplaceMode};
-use connecttrade::models::{GroupRole, GroupStatus, NormalizedStatus, OrderTif, OrderType, TransactionType};
+use connecttrade::models::{
+    GroupRole, GroupStatus, NormalizedStatus, OrderBroker, OrderTif, OrderType, TransactionType,
+};
 use rust_decimal::Decimal;
 use std::time::{Duration, Instant};
 
@@ -185,7 +187,16 @@ impl Book {
     fn fill(&mut self, oid: &str, qty: Decimal, price: Decimal, p: &Profile) {
         let t = now_str();
         let Some(o) = self.orders.get_mut(oid) else { return };
+        let before = o.fills.clone();
         o.fills.push(FillRec { fill_id: id(), time: t.clone(), qty, price });
+        // TradeZero's fees are its schedule's, per order: this fill pays what the order now owes less what it paid
+        let fee = if p.broker == OrderBroker::Tradezero {
+            let sell = !o.buys();
+            let owed = |f: &[FillRec]| crate::fees::tradezero(sell, f).unwrap_or(Decimal::ZERO);
+            owed(&o.fills) - owed(&before)
+        } else {
+            FEE_PER_SHARE * qty
+        };
         o.last_exec = Some(t.clone());
         o.last_modified.clone_from(&t);
         let done = o.filled_qty() >= o.qty;
@@ -196,7 +207,6 @@ impl Book {
 
         let signed = if buy { qty } else { -qty };
         self.book_position(&account_id, &symbol, signed, price);
-        let fee = FEE_PER_SHARE * qty;
         if let Some(a) = self.accounts.get_mut(&account_id) {
             a.cash -= signed * price + fee;
         }

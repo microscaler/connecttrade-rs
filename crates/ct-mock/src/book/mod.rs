@@ -21,7 +21,8 @@ use std::time::{Duration, Instant};
 pub const START_CASH: Decimal = Decimal::from_parts(100_000, 0, 0, false, 0);
 /// The price of a symbol nobody has set.
 pub const DEFAULT_PRICE: Decimal = Decimal::ONE_HUNDRED;
-/// Per-share fee the mock charges, so fee rows exist.
+/// Per-share fee the mock charges brokers without a modelled schedule, so fee rows exist (`TradeZero`'s is
+/// [`crate::fees`]).
 pub const FEE_PER_SHARE: Decimal = Decimal::from_parts(5, 0, 0, false, 3);
 
 /// Which session the mock's market is in (set through `/mock/session`).
