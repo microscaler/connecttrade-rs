@@ -14,9 +14,13 @@ use tungstenite::{Message, WebSocket};
 /// The GUID RFC 6455 appends to `Sec-WebSocket-Key` before hashing it into `Sec-WebSocket-Accept`.
 const WEBSOCKET_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-/// Why a stream session failed.
+/// Why a stream session failed. Text from the server is shown on one line (#22).
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum StreamError {
+    /// A `ws://` URL to a host that is not this machine: the client secret would go in clear (#16).
+    #[error("refusing to authenticate in clear to {0}; use wss://")]
+    Insecure(String),
     /// The WebSocket or the TLS under it failed.
     #[error("websocket: {0}")]
     Socket(Box<tungstenite::Error>),
@@ -25,22 +29,22 @@ pub enum StreamError {
     Io(#[from] std::io::Error),
     /// The server did not switch to WebSocket: a final HTTP status instead of 101, or a 101 that does not prove it
     /// read our key.
-    #[error("websocket handshake refused: {0}")]
+    #[error("websocket handshake refused: {}", crate::redact::one_line(.0))]
     Handshake(String),
     /// A message could not be encoded; nothing was sent.
     #[error("message did not encode: {0}")]
     Encode(String),
-    #[error("authentication refused: {0}")]
+    #[error("authentication refused: {}", crate::redact::one_line(.0))]
     AuthRefused(String),
-    #[error("subscription refused: {0}")]
+    #[error("subscription refused: {}", crate::redact::one_line(.0))]
     SubscriptionRefused(String),
-    #[error("unexpected message during {stage}: {message}")]
+    #[error("unexpected message during {stage}: {}", crate::redact::one_line(.message))]
     Protocol { stage: &'static str, message: String },
     #[error("no answer during {0}")]
     Timeout(&'static str),
-    #[error("closed by the server: {0}")]
+    #[error("closed by the server: {}", crate::redact::one_line(.0))]
     Closed(String),
-    #[error("bad message: {0}")]
+    #[error("bad message: {}", crate::redact::one_line(.0))]
     Decode(String),
 }
 
@@ -91,17 +95,24 @@ impl StreamConfig {
             other => return Err(protocol("welcome", &other)),
         }
 
-        let auth = match &self.auth {
+        let mut auth = match &self.auth {
             StreamAuth::Client { client_id, client_secret } => ClientMessage::Authenticate {
                 client_id: Some(client_id.clone()),
-                client_secret: Some(client_secret.clone()),
+                client_secret: Some(client_secret.expose().to_string()),
                 access_token: None,
             },
-            StreamAuth::Token(t) => {
-                ClientMessage::Authenticate { client_id: None, client_secret: None, access_token: Some(t.clone()) }
-            }
+            StreamAuth::Token(t) => ClientMessage::Authenticate {
+                client_id: None,
+                client_secret: None,
+                access_token: Some(t.expose().to_string()),
+            },
         };
-        s.send(&auth)?;
+        let sent = s.send(&auth);
+        // the message's copies of the credential are zeroed whether or not it went (#21)
+        if let ClientMessage::Authenticate { client_secret, access_token, .. } = &mut auth {
+            client_secret.iter_mut().chain(access_token.iter_mut()).for_each(zeroize::Zeroize::zeroize);
+        }
+        sent?;
         match s.read_message("authenticate")? {
             ServerMessage::AuthSuccess { user_id, .. } => s.user_id = user_id,
             ServerMessage::AuthError { message } => return Err(StreamError::AuthRefused(message.unwrap_or_default())),
@@ -170,6 +181,10 @@ fn http_url(url: &str) -> Result<(String, String), StreamError> {
     let (scheme, rest) = if let Some(rest) = url.strip_prefix("wss://") {
         ("https://", rest)
     } else if let Some(rest) = url.strip_prefix("ws://") {
+        let host = crate::request::host_of(rest);
+        if !crate::request::is_loopback(&host) {
+            return Err(StreamError::Insecure(host));
+        }
         ("http://", rest)
     } else {
         return Err(StreamError::Handshake(format!("{url}: not a ws:// or wss:// URL")));
@@ -313,11 +328,17 @@ impl StreamSession {
         mut on_update: impl FnMut(ServerMessage),
     ) -> Result<Duration, StreamError> {
         let start = Instant::now();
+        let deadline = start + timeout;
         self.ping(seq)?;
-        self.set_read_timeout(Some(timeout))?;
+        // each read waits only for what is left of the timeout, so an update just before the deadline cannot restart
+        // a full wait (#20)
         let result = loop {
-            if start.elapsed() > timeout {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
                 break Err(StreamError::Timeout("ping"));
+            }
+            if let Err(e) = self.set_read_timeout(Some(left)) {
+                break Err(e);
             }
             match self.read_message("ping") {
                 Ok(ServerMessage::Pong { seq: Some(s) }) if s == seq => break Ok(start.elapsed()),
@@ -325,8 +346,10 @@ impl StreamSession {
                 Err(e) => break Err(e),
             }
         };
-        self.set_read_timeout(None)?;
-        result
+        // the read's own error wins over one restoring the timeout on a socket that has died
+        let restored = self.set_read_timeout(None);
+        let elapsed = result?;
+        restored.map(|()| elapsed)
     }
 
     /// Close the session politely.
@@ -352,11 +375,14 @@ impl StreamSession {
                 Err(e) => return Err(e.into()),
             };
             match msg {
+                // a JSON message of the wrong shape is ServerMessage::Undecoded and the session goes on (#15); only a
+                // frame that is not JSON at all is an error
                 Message::Text(t) => {
-                    return serde_json::from_str(t.as_str()).map_err(|e| StreamError::Decode(format!("{e}: {t}")))
+                    return super::decode(t.as_bytes())
+                        .ok_or_else(|| StreamError::Decode(format!("not JSON: {} bytes", t.len())))
                 }
                 Message::Binary(b) => {
-                    return serde_json::from_slice(&b).map_err(|e| StreamError::Decode(e.to_string()))
+                    return super::decode(&b).ok_or_else(|| StreamError::Decode(format!("not JSON: {} bytes", b.len())))
                 }
                 Message::Close(c) => {
                     return Err(StreamError::Closed(
@@ -390,7 +416,12 @@ mod tests {
             http_url("ws://127.0.0.1:8098/stream?x=1").unwrap(),
             ("http://127.0.0.1:8098/stream?x=1".into(), "/stream?x=1".into())
         );
-        assert_eq!(http_url("ws://h:1?x=1").unwrap().1, "/?x=1");
+        assert_eq!(http_url("ws://127.0.0.1:1?x=1").unwrap().1, "/?x=1");
+        assert_eq!(http_url("ws://localhost:1/s").unwrap().0, "http://localhost:1/s");
+        // the client secret never goes in clear to another machine (#16)
+        assert!(
+            matches!(http_url("ws://stream.connecttrade.com"), Err(StreamError::Insecure(h)) if h == "stream.connecttrade.com")
+        );
         assert!(matches!(http_url("https://h/"), Err(StreamError::Handshake(_))));
     }
 

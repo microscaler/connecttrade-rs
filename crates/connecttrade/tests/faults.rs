@@ -33,7 +33,7 @@ fn a_timeout_after_the_change_means_look_it_up_not_retry() {
     assert!(e.may_have_happened());
     // the order exists: found by its client order id
     let found = env.client.send(&t.creds, ops::list_orders(&Default::default())).unwrap().data.unwrap();
-    assert!(found.iter().any(|o| o.cl_order_id == "lost-1"));
+    assert!(found.iter().any(|o| o.cl_order_id.as_deref() == Some("lost-1")));
 
     // a timeout before the change: nothing exists
     let slow = Client::new(
@@ -49,7 +49,7 @@ fn a_timeout_after_the_change_means_look_it_up_not_retry() {
     assert!(e.may_have_happened(), "the client cannot tell the two apart; only the lookup can");
     std::thread::sleep(Duration::from_millis(100));
     let found = env.client.send(&t.creds, ops::list_orders(&Default::default())).unwrap().data.unwrap();
-    assert!(!found.iter().any(|o| o.cl_order_id == "lost-2"));
+    assert!(!found.iter().any(|o| o.cl_order_id.as_deref() == Some("lost-2")));
 }
 
 #[test]

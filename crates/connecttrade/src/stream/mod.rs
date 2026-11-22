@@ -35,9 +35,9 @@ pub enum Topic {
 #[derive(Clone)]
 pub enum StreamAuth {
     /// The platform's client credentials (server side). Needs `subscribe_user` per user.
-    Client { client_id: String, client_secret: String },
+    Client { client_id: String, client_secret: crate::auth::Secret },
     /// A platform token (acts like client credentials) or a user token (locked to its user, subscribed already).
-    Token(String),
+    Token(crate::auth::Secret),
 }
 
 impl std::fmt::Debug for StreamAuth {
@@ -51,8 +51,8 @@ impl std::fmt::Debug for StreamAuth {
     }
 }
 
-/// Messages a client sends.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Messages a client sends. Its `Debug` never shows a credential (#9).
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ClientMessage {
     Authenticate {
@@ -78,9 +78,31 @@ pub enum ClientMessage {
     },
 }
 
+impl std::fmt::Debug for ClientMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClientMessage::Authenticate { client_id, client_secret, access_token } => f
+                .debug_struct("Authenticate")
+                .field("client_id", client_id)
+                .field("client_secret", &client_secret.as_ref().map(|_| "<redacted>"))
+                .field("access_token", &access_token.as_ref().map(|_| "<redacted>"))
+                .finish(),
+            ClientMessage::Subscribe { topics } => f.debug_struct("Subscribe").field("topics", topics).finish(),
+            ClientMessage::SubscribeUser { user_id } => {
+                f.debug_struct("SubscribeUser").field("user_id", user_id).finish()
+            }
+            ClientMessage::UnsubscribeUser { user_id } => {
+                f.debug_struct("UnsubscribeUser").field("user_id", user_id).finish()
+            }
+            ClientMessage::Ping { seq } => f.debug_struct("Ping").field("seq", seq).finish(),
+        }
+    }
+}
+
 /// Messages the server sends.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ServerMessage {
     Welcome {
         session_id: String,
@@ -136,9 +158,44 @@ pub enum ServerMessage {
         #[serde(default)]
         message: Option<String>,
     },
+    /// A message that is JSON but did not decode as its type (#15). The session goes on; `raw` is the message with
+    /// any credential redacted, at most 4 KiB.
+    #[serde(skip)]
+    Undecoded {
+        /// Its `type`, when it has one.
+        type_: Option<String>,
+        raw: String,
+        error: String,
+    },
     /// A message type this crate does not know yet.
     #[serde(other)]
     Unknown,
+}
+
+/// A message's text as a [`ServerMessage`]: one that is JSON but not of its type's shape is
+/// [`ServerMessage::Undecoded`], so one odd update never ends a session (#15). `None`: not JSON at all.
+#[must_use]
+pub fn decode(text: &[u8]) -> Option<ServerMessage> {
+    match serde_json::from_slice::<ServerMessage>(text) {
+        Ok(m) => Some(m),
+        Err(e) => {
+            let v = serde_json::from_slice::<serde_json::Value>(text).ok()?;
+            let mut raw = crate::redact::body("stream", text).text;
+            if raw.len() > 4096 {
+                let mut end = 4096;
+                while !raw.is_char_boundary(end) {
+                    end -= 1;
+                }
+                raw.truncate(end);
+                raw.push('…');
+            }
+            Some(ServerMessage::Undecoded {
+                type_: v.get("type").and_then(|t| t.as_str()).map(str::to_string),
+                raw,
+                error: e.to_string(),
+            })
+        }
+    }
 }
 
 #[cfg(test)]
@@ -160,6 +217,11 @@ mod tests {
         assert!(matches!(serde_json::from_str(pos).unwrap(), ServerMessage::Positions { data } if data.len() == 1));
         let pong = r#"{"type":"pong","seq":1}"#;
         assert_eq!(serde_json::from_str::<ServerMessage>(pong).unwrap(), ServerMessage::Pong { seq: Some(1) });
+        let odd = r#"{"type":"orders","data":{"order_id":7}}"#;
+        assert!(
+            matches!(decode(odd.as_bytes()), Some(ServerMessage::Undecoded { type_: Some(t), .. }) if t == "orders")
+        );
+        assert!(decode(b"not json").is_none());
         let new = r#"{"type":"heartbeat_v2","x":1}"#;
         assert_eq!(serde_json::from_str::<ServerMessage>(new).unwrap(), ServerMessage::Unknown);
     }

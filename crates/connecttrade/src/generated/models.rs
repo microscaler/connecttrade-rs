@@ -357,7 +357,8 @@ pub struct OrderCreateResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub broker_text: Option<String>,
     /// A unique client-defined order ID included in the request. Must be unique per order per day.
-    pub cl_order_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cl_order_id: Option<String>,
     /// The unique identifier for the connection (UUID format)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connection_id: Option<String>,
@@ -618,7 +619,8 @@ pub struct OrderResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub broker_text: Option<String>,
     /// A unique client-defined order ID included in the request. Must be unique per order per day.
-    pub cl_order_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cl_order_id: Option<String>,
     /// The unique identifier for the connection (UUID format)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connection_id: Option<String>,

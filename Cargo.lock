@@ -248,6 +248,7 @@ dependencies = [
  "sha1",
  "thiserror",
  "tungstenite",
+ "zeroize",
 ]
 
 [[package]]
@@ -986,7 +987,7 @@ dependencies = [
 [[package]]
 name = "may_minihttp"
 version = "0.1.11"
-source = "git+https://github.com/microscaler/may_minihttp.git?tag=v0.1.15#a9042cbfc83c78df206ecb004d30e9a795a1b968"
+source = "git+https://github.com/microscaler/may_minihttp.git?tag=v0.1.16#8ab5700b6011aa726a63a88ac381290ffc62905a"
 dependencies = [
  "bytes",
  "generator",

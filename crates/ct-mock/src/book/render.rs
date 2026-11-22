@@ -34,7 +34,7 @@ impl Book {
             account_id: o.account_id.clone(),
             order_id: o.order_id.clone(),
             account_number: Some(o.account_number.clone()),
-            cl_order_id: o.cl_order_id.clone(),
+            cl_order_id: Some(o.cl_order_id.clone()),
             platform: Some("mock".into()),
             broker: Some(o.broker.as_str().to_string()),
             normalized_status: Some(o.status.clone()),

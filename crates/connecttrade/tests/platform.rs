@@ -85,7 +85,7 @@ fn tokens_stand_in_for_credentials() {
             ops::create_user_token(&UserAccessTokenRequest { scopes: vec![TokenScope::Read, TokenScope::Trade] }),
         )
         .unwrap();
-    let bearer = Credentials::Bearer(tok.access_token);
+    let bearer = Credentials::Bearer(tok.access_token.into());
     let accounts = env.client.send(&bearer, ops::list_accounts(&Default::default())).unwrap();
     assert_eq!(accounts[0].account_id, t.account_id);
 }

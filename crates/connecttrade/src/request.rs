@@ -97,8 +97,8 @@ pub struct Request<T> {
     _answer: PhantomData<fn() -> T>,
 }
 
-/// A request as bytes, for a transport.
-#[derive(Debug, Clone)]
+/// A request as bytes, for a transport. Its `Debug` never shows a credential (#9).
+#[derive(Clone)]
 pub struct HttpRequest {
     pub operation: &'static str,
     pub method: Method,
@@ -108,11 +108,61 @@ pub struct HttpRequest {
     pub body: Option<Vec<u8>>,
 }
 
+/// Headers whose value is a credential.
+pub(crate) fn is_secret_header(name: &str) -> bool {
+    ["client-secret", "user-secret", "authorization"].iter().any(|h| name.eq_ignore_ascii_case(h))
+}
+
+impl Drop for HttpRequest {
+    /// The copies of credentials in the headers are zeroed once the request is done with (#21).
+    fn drop(&mut self) {
+        for (k, v) in &mut self.headers {
+            if is_secret_header(k) {
+                zeroize::Zeroize::zeroize(v);
+            }
+        }
+    }
+}
+
+impl std::fmt::Debug for HttpRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let headers: Vec<(&str, &str)> = self
+            .headers
+            .iter()
+            .map(|(k, v)| (*k, if is_secret_header(k) { "<redacted>" } else { v.as_str() }))
+            .collect();
+        f.debug_struct("HttpRequest")
+            .field("operation", &self.operation)
+            .field("method", &self.method)
+            .field("url", &self.url)
+            .field("headers", &headers)
+            // a body can carry a secret (create_user_token): its size only
+            .field("body", &self.body.as_ref().map(|b| format!("<{} bytes>", b.len())))
+            .finish()
+    }
+}
+
 /// What came back.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct HttpResponse {
     pub status: u16,
+    /// Response headers, names lower-cased. A transport that does not report them leaves this empty (#19).
+    pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
+}
+
+impl HttpResponse {
+    /// An answer without headers.
+    #[must_use]
+    pub fn new(status: u16, body: Vec<u8>) -> Self {
+        HttpResponse { status, headers: Vec::new(), body }
+    }
+
+    /// The first value of header `name` (any case).
+    #[must_use]
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)).map(|(_, v)| v.as_str())
+    }
 }
 
 impl<T: DeserializeOwned> Request<T> {
@@ -149,6 +199,7 @@ impl<T: DeserializeOwned> Request<T> {
     /// [`Error::Encode`] when the body could not be encoded.
     pub fn to_http(&self, base_url: &str, credentials: &Credentials) -> Result<HttpRequest, Error> {
         let headers = self.headers(credentials)?;
+        refuse_in_clear(self.operation, base_url)?;
         Ok(HttpRequest {
             operation: self.operation,
             method: self.method,
@@ -165,6 +216,7 @@ impl<T: DeserializeOwned> Request<T> {
     /// As [`Request::to_http`].
     pub fn into_http(self, base_url: &str, credentials: &Credentials) -> Result<(HttpRequest, Decoder<T>), Error> {
         let headers = self.headers(credentials)?;
+        refuse_in_clear(self.operation, base_url)?;
         let url = self.url(base_url);
         let decoder = Decoder { operation: self.operation, _answer: PhantomData };
         Ok((HttpRequest { operation: self.operation, method: self.method, url, headers, body: self.body }, decoder))
@@ -177,6 +229,10 @@ impl<T: DeserializeOwned> Request<T> {
     fn headers(&self, credentials: &Credentials) -> Result<Vec<(&'static str, String)>, Error> {
         if let Some(reason) = &self.encode_error {
             return Err(Error::Encode { operation: self.operation, reason: reason.clone() });
+        }
+        // an empty path parameter addresses nothing meaningful (#18)
+        if self.path.contains("//") || self.path.ends_with('/') && self.path.len() > 1 {
+            return Err(Error::Encode { operation: self.operation, reason: "an empty path parameter".into() });
         }
         let mut headers = credentials
             .headers(self.scope)
@@ -222,21 +278,68 @@ impl<T: DeserializeOwned> Decoder<T> {
 fn parse<T: DeserializeOwned>(operation: &'static str, response: &HttpResponse) -> Result<T, Error> {
     if (200..300).contains(&response.status) {
         let body = if response.body.is_empty() { b"null".as_slice() } else { &response.body };
-        serde_json::from_slice(body).map_err(|e| Error::Decode {
-            operation,
-            status: response.status,
-            reason: e.to_string(),
-            body: String::from_utf8_lossy(&response.body).into_owned(),
+        serde_json::from_slice(body).map_err(|e| {
+            let kept = crate::redact::body(operation, &response.body);
+            Error::Decode {
+                operation,
+                status: response.status,
+                reason: crate::redact::scrub(&e.to_string(), &kept.secrets),
+                body: kept.text,
+            }
         })
     } else {
-        Err(Error::Api(ApiError::from_response(operation, response.status, &response.body)))
+        let mut e = ApiError::from_response(operation, response.status, &response.body);
+        if matches!(response.status, 429 | 503) {
+            e.retry_after = response.header("retry-after").and_then(crate::error::parse_retry_after);
+        }
+        Err(Error::Api(e))
     }
 }
 
-/// Percent-encode one path segment.
+/// Percent-encode one path segment. `.` and `..` are encoded too: a value never becomes a dot segment that a proxy
+/// would resolve to another resource (#18).
 #[must_use]
 pub fn encode_path(s: &str) -> String {
-    encode(s, |c| c.is_ascii_alphanumeric() || b"-._~".contains(&c))
+    match s {
+        "." => "%2E".into(),
+        ".." => "%2E%2E".into(),
+        _ => encode(s, |c| c.is_ascii_alphanumeric() || b"-._~".contains(&c)),
+    }
+}
+
+/// Credentials never go over plain HTTP, except to this machine (a mock): `http://` is refused unless the host is
+/// loopback (#16).
+fn refuse_in_clear(operation: &'static str, base_url: &str) -> Result<(), Error> {
+    match base_url.get(..7) {
+        Some(scheme) if scheme.eq_ignore_ascii_case("http://") => {
+            let host = host_of(base_url.get(7..).unwrap_or_default());
+            if is_loopback(&host) {
+                Ok(())
+            } else {
+                Err(Error::Insecure { operation, host })
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
+/// The host of `rest` (what follows `scheme://`): no user info, no port, no path.
+pub(crate) fn host_of(rest: &str) -> String {
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host_port = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+    let host = if let Some(v6) = host_port.strip_prefix('[') {
+        v6.split(']').next().unwrap_or_default()
+    } else {
+        host_port.split(':').next().unwrap_or_default()
+    };
+    host.to_ascii_lowercase()
+}
+
+/// `localhost` (and names under it), `127.0.0.0/8` and `::1`.
+pub(crate) fn is_loopback(host: &str) -> bool {
+    host == "localhost"
+        || host.ends_with(".localhost")
+        || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
 
 fn encode_query(s: &str) -> String {

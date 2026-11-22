@@ -110,7 +110,7 @@ fn a_user_token_session_is_locked_to_its_user() {
         .client
         .send(&t.creds, ops::create_user_token(&UserAccessTokenRequest { scopes: vec![TokenScope::Read] }))
         .unwrap();
-    let mut cfg = StreamConfig::new(env.mock.stream_url(), StreamAuth::Token(tok.access_token));
+    let mut cfg = StreamConfig::new(env.mock.stream_url(), StreamAuth::Token(tok.access_token.into()));
     cfg.handshake_timeout = Duration::from_secs(2);
     let mut s = cfg.connect().unwrap();
     assert_eq!(s.user_id(), Some(t.user_id.as_str()));

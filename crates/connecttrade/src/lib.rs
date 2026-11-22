@@ -16,7 +16,9 @@
 pub mod auth;
 mod client;
 pub mod error;
+mod redact;
 pub mod request;
+mod status;
 pub mod stream;
 pub mod transport;
 
@@ -41,7 +43,7 @@ pub mod ops {
     pub use crate::generated::operations::*;
 }
 
-pub use auth::{Credentials, PlatformCredentials, UserCredentials};
+pub use auth::{Credentials, PlatformCredentials, Secret, UserCredentials};
 pub use client::{Client, PRODUCTION_URL, STREAM_URL};
 pub use error::{ApiError, Error, ErrorCode, TransportError};
 pub use request::{HttpRequest, HttpResponse, Method, Request, Scope};

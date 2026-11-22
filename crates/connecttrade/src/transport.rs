@@ -99,8 +99,18 @@ mod may_transport {
             if let Some(body) = &r.body {
                 b = b.body(body.clone());
             }
-            let resp = b.send_typed().map_err(|e| classify(&e))?;
-            Ok(HttpResponse { status: resp.status().as_u16(), body: resp.into_body() })
+            if r.method.is_change() {
+                // a change reaches the server at most once: the pool never resends it on its own after a stale
+                // connection, even a DELETE (#12)
+                b = b.stale_retry(false);
+            }
+            let resp = b.send_typed().map_err(|e| classify(&e, r.method.is_change()))?;
+            let headers = resp
+                .headers()
+                .iter()
+                .map(|(k, v)| (k.as_str().to_ascii_lowercase(), String::from_utf8_lossy(v.as_bytes()).into_owned()))
+                .collect();
+            Ok(HttpResponse { status: resp.status().as_u16(), headers, body: resp.into_body() })
         }
     }
 
@@ -109,13 +119,16 @@ mod may_transport {
     }
 
     /// Conservative: only failures that end before the request could be written are `NotSent`. Everything else may
-    /// have reached Connect Trade.
-    fn classify(e: &ClientError) -> TransportError {
+    /// have reached Connect Trade. A TLS failure cannot be placed before or after the request was written (the
+    /// client labels it by its text), so for a change it is `Broken` - may have happened (#13); a read keeps
+    /// `NotSent`.
+    fn classify(e: &ClientError, change: bool) -> TransportError {
         let refused = std::error::Error::source(e)
             .and_then(|s| s.downcast_ref::<io::Error>())
             .is_some_and(|io| io.kind() == io::ErrorKind::ConnectionRefused);
         match e.kind() {
             // the request was refused before it was built, or the server could not be found or reached
+            ClientErrorKind::Tls if change => TransportError::Broken(e.to_string()),
             ClientErrorKind::InvalidRequest
             | ClientErrorKind::Metadata
             | ClientErrorKind::Dns
@@ -130,22 +143,43 @@ mod may_transport {
     mod tests {
         use super::*;
 
+        fn classify_change(e: &ClientError) -> TransportError {
+            classify(e, true)
+        }
+
+        #[test]
+        fn a_tls_failure_on_a_change_may_have_happened_and_on_a_read_was_not_sent() {
+            let tls = || ClientError::from(io::Error::other("tls: received fatal alert: InternalError"));
+            assert_eq!(tls().kind(), ClientErrorKind::Tls);
+            assert!(matches!(classify(&tls(), true), TransportError::Broken(_)));
+            assert!(matches!(classify(&tls(), false), TransportError::NotSent(_)));
+        }
+
         fn err(kind: io::ErrorKind, message: &str) -> ClientError {
             ClientError::from(io::Error::new(kind, message.to_string()))
         }
 
         #[test]
         fn only_failures_before_sending_are_not_sent() {
-            assert!(matches!(classify(&err(io::ErrorKind::ConnectionRefused, "refused")), TransportError::NotSent(_)));
             assert!(matches!(
-                classify(&err(io::ErrorKind::AddrNotAvailable, "no address")),
+                classify_change(&err(io::ErrorKind::ConnectionRefused, "refused")),
                 TransportError::NotSent(_)
             ));
-            assert!(matches!(classify(&err(io::ErrorKind::InvalidInput, "bad url")), TransportError::NotSent(_)));
-            assert!(matches!(classify(&err(io::ErrorKind::TimedOut, "read")), TransportError::Timeout(_)));
-            assert!(matches!(classify(&err(io::ErrorKind::ConnectionReset, "reset")), TransportError::Broken(_)));
-            assert!(matches!(classify(&err(io::ErrorKind::UnexpectedEof, "eof")), TransportError::Broken(_)));
-            assert!(matches!(classify(&err(io::ErrorKind::BrokenPipe, "pipe")), TransportError::Broken(_)));
+            assert!(matches!(
+                classify_change(&err(io::ErrorKind::AddrNotAvailable, "no address")),
+                TransportError::NotSent(_)
+            ));
+            assert!(matches!(
+                classify_change(&err(io::ErrorKind::InvalidInput, "bad url")),
+                TransportError::NotSent(_)
+            ));
+            assert!(matches!(classify_change(&err(io::ErrorKind::TimedOut, "read")), TransportError::Timeout(_)));
+            assert!(matches!(
+                classify_change(&err(io::ErrorKind::ConnectionReset, "reset")),
+                TransportError::Broken(_)
+            ));
+            assert!(matches!(classify_change(&err(io::ErrorKind::UnexpectedEof, "eof")), TransportError::Broken(_)));
+            assert!(matches!(classify_change(&err(io::ErrorKind::BrokenPipe, "pipe")), TransportError::Broken(_)));
         }
     }
 }

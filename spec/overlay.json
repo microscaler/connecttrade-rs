@@ -61,16 +61,14 @@
     "UserAccessTokenRequest.scopes": "TokenScope"
   },
   "response_required": {
-    "_comment": "Response fields are Option unless listed here: the spec's `required` lists do not match the docs' own examples (legs and price_effect are null in them), and a decode failure after an order was placed is worse than a missing field. These are the identifiers every response of that kind must carry.",
+    "_comment": "Response fields are Option unless listed here: the spec's `required` lists do not match the docs' own examples (legs and price_effect are null in them), and a decode failure after an order was placed is worse than a missing field. These are the identifiers every response of that kind must carry. Not cl_order_id: an order placed outside the platform (in the broker's own app, or by another platform on the account) has none, and one such order must not fail a whole page (issue #10).",
     "OrderResponse": [
       "order_id",
-      "account_id",
-      "cl_order_id"
+      "account_id"
     ],
     "OrderCreateResponse": [
       "order_id",
-      "account_id",
-      "cl_order_id"
+      "account_id"
     ],
     "OrderGroup": [
       "order_group_id",

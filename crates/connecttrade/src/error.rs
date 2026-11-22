@@ -37,21 +37,27 @@ pub struct ApiError {
     /// The code at the start of the message, or in a `code` field.
     pub code: Option<ErrorCode>,
     pub message: String,
-    /// The body as received, for logs.
+    /// The body, credentials redacted and capped (#17), for logs.
     pub body: String,
+    /// How long to wait before asking again, from `Retry-After` on a 429 or 503 (#19).
+    pub retry_after: Option<std::time::Duration>,
 }
 
 impl ApiError {
     pub(crate) fn from_response(operation: &'static str, status: u16, body: &[u8]) -> ApiError {
-        let raw = String::from_utf8_lossy(body).into_owned();
+        // never a credential, never more than redact::KEEP bytes (#17)
+        let kept = crate::redact::body(operation, body);
         let parsed: Option<ErrorResponse> = serde_json::from_slice(body).ok();
-        let message = parsed.as_ref().and_then(|e| e.message.clone()).unwrap_or_else(|| raw.clone());
+        let message = parsed
+            .as_ref()
+            .and_then(|e| e.message.clone())
+            .map_or_else(|| kept.text.clone(), |m| crate::redact::scrub(&m, &kept.secrets));
         let code = parsed
             .as_ref()
             .and_then(|e| e.code.clone())
             .or_else(|| leading_code(&message))
             .map(|c| ErrorCode::parse(&c));
-        ApiError { operation, status, code, message, body: raw }
+        ApiError { operation, status, code, message, body: kept.text, retry_after: None }
     }
 
     /// `409` on a create, replace or cancel: the duplicate `cl_order_id` case or a `BROKEN` connection. The two are
@@ -62,9 +68,20 @@ impl ApiError {
         self.status == 409
     }
 
+    /// `409` because the account's broker connection is `BROKEN`: the user must log in at the broker again. Read from
+    /// Connect Trade's wording ("Connection is BROKEN") or a `BROKEN` / `CONNECTION_BROKEN` code - never from the
+    /// word anywhere in the message, which echoes the caller's own `cl_order_id` (#14).
     #[must_use]
     pub fn is_broken_connection(&self) -> bool {
-        self.status == 409 && self.message.to_ascii_lowercase().contains("broken")
+        self.status == 409
+            && (matches!(&self.code, Some(ErrorCode::Other(c)) if c == "BROKEN" || c == "CONNECTION_BROKEN")
+                || self.message.to_ascii_lowercase().contains("connection is broken"))
+    }
+
+    /// `409` for a `cl_order_id` already recorded on the account: the order (or an earlier send of it) is there.
+    #[must_use]
+    pub fn is_duplicate(&self) -> bool {
+        self.status == 409 && !self.is_broken_connection()
     }
 
     #[must_use]
@@ -78,6 +95,51 @@ impl ApiError {
     pub fn is_not_supported(&self) -> bool {
         self.status == 501
     }
+}
+
+impl std::fmt::Display for ApiError {
+    /// One line: Connect Trade's text with control characters escaped, capped (#22).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}: {}", self.operation, self.status, crate::redact::one_line(&self.message))
+    }
+}
+
+/// `Retry-After`: a number of seconds, or an HTTP date (IMF-fixdate, `Sun, 06 Nov 1994 08:49:37 GMT`) as the time
+/// left until then (zero once past).
+pub(crate) fn parse_retry_after(value: &str) -> Option<std::time::Duration> {
+    let v = value.trim();
+    if let Ok(secs) = v.parse::<u64>() {
+        return Some(std::time::Duration::from_secs(secs));
+    }
+    let at = http_date(v)?;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
+    Some(std::time::Duration::from_secs(at.saturating_sub(now)))
+}
+
+/// Seconds since the epoch of an IMF-fixdate (`Sun, 06 Nov 1994 08:49:37 GMT`).
+fn http_date(v: &str) -> Option<u64> {
+    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let rest = v.split_once(", ")?.1;
+    let mut parts = rest.split(' ');
+    let day: i64 = parts.next()?.parse().ok()?;
+    let month_name = parts.next()?;
+    let month = i64::try_from(MONTHS.iter().position(|m| *m == month_name)? + 1).ok()?;
+    let year: i64 = parts.next()?.parse().ok()?;
+    let mut hms = parts.next()?.split(':');
+    let (h, m, sec): (i64, i64, i64) =
+        (hms.next()?.parse().ok()?, hms.next()?.parse().ok()?, hms.next()?.parse().ok()?);
+    if parts.next()? != "GMT" || !(1..=31).contains(&day) || h > 23 || m > 59 || sec > 60 {
+        return None;
+    }
+    // days from 1970-01-01 to the civil date (Howard Hinnant's days_from_civil)
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = (month + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    u64::try_from(days * 86_400 + h * 3_600 + m * 60 + sec).ok()
 }
 
 /// `"ABC_DEF: text"` or a bare `"ABC_DEF"` → `Some("ABC_DEF")`. The docs show both forms.
@@ -105,17 +167,22 @@ pub enum TransportError {
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("{operation}: needs {missing}")]
     Credentials { operation: &'static str, missing: &'static str },
+    /// Credentials would go over plain HTTP to a host that is not this machine; nothing was sent (#16).
+    #[error("{operation}: refusing to send credentials in clear to {host}; use https://")]
+    Insecure { operation: &'static str, host: String },
     /// The request body could not be encoded; nothing was sent.
     #[error("{operation}: body did not encode: {reason}")]
     Encode { operation: &'static str, reason: String },
     #[error("transport: {0}")]
     Transport(#[from] TransportError),
-    #[error("{} {}: {}", .0.operation, .0.status, .0.message)]
+    #[error("{0}")]
     Api(ApiError),
-    #[error("{operation}: {status} answer did not decode: {reason}")]
+    /// A 2xx answer that did not decode; `body` is the answer with credentials redacted and capped.
+    #[error("{operation}: {status} answer did not decode: {}", crate::redact::one_line(.reason))]
     Decode { operation: &'static str, status: u16, reason: String, body: String },
 }
 
@@ -163,6 +230,15 @@ mod tests {
         assert_eq!(e.code, Some(ErrorCode::GroupLegNotReplaceable));
         let e = ApiError::from_response("x", 502, b"<html>bad gateway</html>");
         assert_eq!(e.message, "<html>bad gateway</html>");
+    }
+
+    #[test]
+    fn retry_after_reads_seconds_and_http_dates() {
+        assert_eq!(parse_retry_after("2"), Some(std::time::Duration::from_secs(2)));
+        assert_eq!(http_date("Sun, 06 Nov 1994 08:49:37 GMT"), Some(784_111_777));
+        assert_eq!(parse_retry_after("Sun, 06 Nov 1994 08:49:37 GMT"), Some(std::time::Duration::ZERO));
+        assert_eq!(parse_retry_after("soon"), None);
+        assert_eq!(http_date("Sun, 06 Nov 1994 08:49:37 UTC"), None);
     }
 
     #[test]
