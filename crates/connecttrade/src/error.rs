@@ -71,6 +71,13 @@ impl ApiError {
     pub fn is_rate_limited(&self) -> bool {
         self.status == 429
     }
+
+    /// `501` on a `PATCH`: the broker cannot modify an order. Change it with a cancel and a new create instead
+    /// (Connect Trade, 22 Nov 2026; docs/connect-trade-answers.md).
+    #[must_use]
+    pub fn is_not_supported(&self) -> bool {
+        self.status == 501
+    }
 }
 
 /// `"ABC_DEF: text"` or a bare `"ABC_DEF"` → `Some("ABC_DEF")`. The docs show both forms.
@@ -118,7 +125,8 @@ impl Error {
     #[must_use]
     pub fn may_have_happened(&self) -> bool {
         matches!(self, Error::Transport(TransportError::Timeout(_) | TransportError::Broken(_)) | Error::Decode { .. })
-            || matches!(self, Error::Api(e) if e.status >= 500)
+            // a 501 is Connect Trade saying the broker cannot do the change at all: nothing happened
+            || matches!(self, Error::Api(e) if e.status >= 500 && e.status != 501)
     }
 
     #[must_use]

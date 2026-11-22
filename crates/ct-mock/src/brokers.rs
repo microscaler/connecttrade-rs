@@ -9,10 +9,13 @@ use connecttrade::models::{ComplexOrderClass, Instrument, OrderBroker};
 pub enum ReplaceMode {
     /// The broker replaces in place: the old order becomes `replaced`, a new one is working.
     Native,
-    /// The broker has no replace call (TradeZero): cancel, then place. The old order can still fill in the gap.
-    /// ASSUMPTION: Connect Trade places the new order only after the cancel is confirmed, and when the old order
-    /// fills first the new one is rejected.
+    /// Cancel, then place, done by Connect Trade behind one `PATCH`. The old order can still fill in the gap.
+    /// No profile uses it since 22 Nov 2026: Connect Trade confirmed it does not do this (see `Unsupported`). Kept
+    /// for a broker that turns out to replace this way underneath.
     CancelThenPlace { gap_ms: u64 },
+    /// The broker cannot modify an order (`TradeZero`). Connect Trade, 22 Nov 2026: `PATCH` answers `501`, and the
+    /// client changes the order with `DELETE` and a new `POST` itself (docs/connect-trade-answers.md).
+    Unsupported,
 }
 
 /// One broker's behaviour behind Connect Trade.
@@ -63,7 +66,7 @@ pub fn profile(broker: &OrderBroker) -> Profile {
         // emulating them. Place 10/s natively; well above what a test sends, so not limited here.
         OrderBroker::Tradezero => Profile {
             code: "TRADEZERO",
-            replace: ReplaceMode::CancelThenPlace { gap_ms: 150 },
+            replace: ReplaceMode::Unsupported,
             stops_regular_hours_only: true,
             transactions: false,
             account_prefix: "TZP",

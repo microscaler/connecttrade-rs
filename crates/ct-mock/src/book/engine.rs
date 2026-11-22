@@ -368,7 +368,8 @@ impl Book {
     pub fn start_replace(&mut self, old: &str, mut new: Order, mode: ReplaceMode) -> String {
         let new_id = new.order_id.clone();
         match mode {
-            ReplaceMode::Native => {
+            // Unsupported is answered 501 before a replace starts (rest::orders::replace_order); native if reached
+            ReplaceMode::Native | ReplaceMode::Unsupported => {
                 new.qty -= self.orders.get(old).map_or(Decimal::ZERO, Order::filled_qty);
                 self.set_status(old, NormalizedStatus::Replaced, "replaced");
                 self.insert_order(new);

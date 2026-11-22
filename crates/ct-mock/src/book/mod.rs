@@ -235,6 +235,8 @@ pub struct Book {
     pub tape: bool,
     /// Symbols that cannot be borrowed for a short sale.
     pub hard_to_borrow: HashSet<String>,
+    /// Sells are refused beyond the shares not already in working sells ([`crate::MockConfig::reserve_shares`]).
+    pub reserve_shares: bool,
     pub timings: Timings,
     /// Updates for the stream: (user, message).
     pub outbox: Vec<(String, ServerMessage)>,
@@ -281,6 +283,7 @@ impl Book {
             rate_window: Duration::from_secs(60),
             tape: false,
             hard_to_borrow: HashSet::new(),
+            reserve_shares: false,
             timings,
             outbox: vec![],
             next_partial: HashMap::new(),
@@ -293,6 +296,7 @@ impl Book {
         self.tape = config.tape;
         self.hard_to_borrow = config.hard_to_borrow.iter().cloned().collect();
         self.rate_window = config.rate_window;
+        self.reserve_shares = config.reserve_shares;
         self
     }
 
