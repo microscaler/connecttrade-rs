@@ -2,8 +2,8 @@
 
 use super::checks::{check_replace, check_shape, connection_broken, session_rejection, BROKEN};
 use super::{bad, body, decimal, err, not_found, ok, user, Q, R};
-use crate::book::{id, now_str, Account, Book, Connection, Group, Order};
-use crate::brokers::{profile, Profile};
+use crate::book::{id, now_str, num, Account, Book, Connection, Group, Order};
+use crate::brokers::{profile, Profile, ReplaceMode};
 use crate::AppState;
 use axum::body::Bytes;
 use axum::extract::{Path, State};
@@ -197,6 +197,26 @@ pub(crate) async fn create_order(State(s): State<Arc<AppState>>, headers: Header
         let sym = t.symbol.unwrap_or_default();
         return Err(bad(format!("SHORT_SALE_NOT_ALLOWED: {sym} is not available to borrow")));
     }
+    // MockConfig::reserve_shares: a sell for more than the long position less the sells already working is refused
+    if book.reserve_shares && t.side == Side::Sell {
+        if let Some(sym) = t.symbol.clone() {
+            let held = book.positions.get(&(t.account_id.clone(), sym.clone())).map_or(Decimal::ZERO, |p| p.qty);
+            let working: Decimal = book
+                .orders
+                .values()
+                .filter(|o| o.account_id == t.account_id && o.symbol.as_deref() == Some(sym.as_str()))
+                .filter(|o| o.side == Side::Sell && o.open())
+                .map(|o| o.qty - o.filled_qty())
+                .sum();
+            if t.qty > held - working {
+                return Err(bad(format!(
+                    "INSUFFICIENT_SHARES: {} {sym} held, {} already in working sell orders",
+                    num(held),
+                    num(working)
+                )));
+            }
+        }
+    }
     if let Some(c) = &req.complex_order_parameters {
         return place_group(&s, &mut book, &t, c);
     }
@@ -331,6 +351,17 @@ pub(crate) async fn replace_order(
     let mut book = s.book();
     let order = owned_order(&book, &uid, &aid, &oid)?;
     let p = profile(&order.broker);
+    // Connect Trade, 22 Nov 2026: where the broker cannot modify an order, PATCH is 501 and the client cancels and
+    // places itself
+    if p.replace == ReplaceMode::Unsupported {
+        return Err(err(
+            StatusCode::NOT_IMPLEMENTED,
+            format!(
+                "NOT_SUPPORTED: {} does not support order modification; cancel the order and place a new one",
+                p.code
+            ),
+        ));
+    }
     check_replace(&book, &order, &aid, &req, &p)?;
     if book.rate_limited(&order.account_id, &p) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, format!("RATE_LIMITED: {} trading call limit reached", p.code)));

@@ -56,14 +56,19 @@ Features: `transport` (`MayTransport`) and `stream` (the WebSocket client), both
 `ct-mock` is a model of Connect Trade as documented, plus our assumptions where the documents are silent. Every assumption is marked `ASSUMPTION` in [`brokers.rs`](crates/ct-mock/src/brokers.rs); when a paper account disagrees, the mock is corrected.
 
 - Users, connections (the OAuth link is a URL on the mock; fetching it completes the login), accounts, balances, positions, transactions.
-- Orders through their life as prices move (`POST /mock/prices`): partial fills, stops and limits, brackets, OTO and OCO groups with contingent exits; replace in place, or cancel then place with a gap (TradeZero, which has no replace); the group-leg rules; asynchronous session rejections (TradeZero's `R79` for a plain stop outside regular hours).
+- Orders through their life as prices move (`POST /mock/prices`): partial fills, stops and limits, brackets, OTO and OCO groups with contingent exits; replace in place where the broker can modify an order, and `501` where it cannot (TradeZero): the client then cancels and places itself, as Connect Trade confirmed on 22 Nov 2026 ([docs/connect-trade-answers.md](docs/connect-trade-answers.md)); the group-leg rules; asynchronous session rejections (TradeZero's `R79` for a plain stop outside regular hours).
 - Per-broker profiles: which brokers take groups, which cannot change quantity on a replace (Tradier), call limits (Tradier: 60 trading calls a minute), which brokers have no transactions (TradeZero, Lightspeed).
 - The stream at `/stream`, with the 10-session and 500-user limits.
 - Faults per request: `X-Auth-Failure`, `X-Service-Unavailable`, `X-Rate-Limit`, and `X-Mock-Delay-Before-Ms` / `X-Mock-Delay-After-Ms` for a timeout before or after the change was made.
 - Controls: `POST /mock/prices`, `POST /mock/session` (`pre`, `regular`, `post`; `new_day` expires every open day order first), `POST /mock/connections/{id}/break`, `POST /mock/reset`.
-- A market for a conformance suite (`MockConfig { tape: true, .. }`): orders fill only when `POST /mock/trade` (`symbol`, `price`, optional `size`) says the market traded, once per trade and in at most its size; outside regular hours only `DAY+`/`GTC+` orders trade; `hard_to_borrow` symbols refuse a short sale with a 400; `rate_window` shortens the minute a broker's trading-call limit counts in.
+- A market for a conformance suite (`MockConfig { tape: true, .. }`): orders fill only when `POST /mock/trade` (`symbol`, `price`, optional `size`) says the market traded, once per trade and in at most its size; outside regular hours only `DAY+`/`GTC+` orders trade; `hard_to_borrow` symbols refuse a short sale with a 400; `rate_window` shortens the minute a broker's trading-call limit counts in; `reserve_shares` makes the broker count working sells against the shares held, so a second sell for the same shares (a take-profit beside a stop) is refused with `400 INSUFFICIENT_SHARES`.
 
 It accepts the platform credentials `mock-client-id` / `mock-client-secret` (or `CT_MOCK_CLIENT_ID` / `CT_MOCK_CLIENT_SECRET`). The image is built by the Octopilot pipeline with the octopilot/rust buildpack (see `skaffold.yaml`): every run pushes it to ttl.sh, and a release promotes it to `ghcr.io/microscaler/ct-mock:vX.Y.Z`.
+
+## What Connect Trade has confirmed
+
+Behaviour Connect Trade has confirmed beyond its published documents, and what the client and the mock do about each, is
+in [docs/connect-trade-answers.md](docs/connect-trade-answers.md). Read it before relying on a mock assumption.
 
 ## Tests
 

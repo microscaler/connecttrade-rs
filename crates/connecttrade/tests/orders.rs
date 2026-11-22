@@ -13,6 +13,7 @@ mod common;
 use common::*;
 use connecttrade::models::*;
 use connecttrade::{ops, ErrorCode};
+use ct_mock::MockConfig;
 use std::time::Duration;
 
 #[test]
@@ -111,7 +112,9 @@ fn tradier_cannot_change_quantity_in_place() {
 }
 
 #[test]
-fn tradezero_replaces_by_cancel_then_place() {
+fn tradezero_cannot_modify_patch_is_501_and_the_order_stands() {
+    // Connect Trade, 22 Nov 2026: where the broker cannot modify an order, PATCH is 501; the client cancels and
+    // places itself (docs/connect-trade-answers.md)
     let env = world();
     let t = env.trader(OrderBroker::Tradezero);
     env.price("AAPL", 190.0);
@@ -120,32 +123,40 @@ fn tradezero_replaces_by_cancel_then_place() {
         .send(&t.creds, ops::create_order(&order(&t, "tzr-1", Side::Buy, "5", OrderType::Lmt, Some("180"), None)))
         .unwrap();
     env.wait_status(&t, &o.order_id, NormalizedStatus::Working);
-    let mut r = replace(&t, "tzr-1-r");
-    r.order_limit_price = Some("181".into());
-    let n = env.client.send(&t.creds, ops::replace_order(&t.account_id, &o.order_id, &r)).unwrap();
-    // during the gap the old order is still live
-    assert_eq!(env.order(&t, &o.order_id).normalized_status, Some(NormalizedStatus::PendingReplace));
-    env.wait_status(&t, &o.order_id, NormalizedStatus::Replaced);
-    env.wait_status(&t, &n.order_id, NormalizedStatus::Working);
+    let mut req = replace(&t, "tzr-1-r");
+    req.order_limit_price = Some("181".into());
+    let err = env.client.send(&t.creds, ops::replace_order(&t.account_id, &o.order_id, &req)).unwrap_err();
+    assert!(err.api().is_some_and(connecttrade::ApiError::is_not_supported), "{err}");
+    assert!(!err.may_have_happened(), "a 501 changed nothing");
+    assert_eq!(env.order(&t, &o.order_id).normalized_status, Some(NormalizedStatus::Working));
+    // the client's own way: cancel, then a new order under a new client order id
+    env.client.send(&t.creds, ops::cancel_order(&t.account_id, &o.order_id)).unwrap();
+    env.wait_status(&t, &o.order_id, NormalizedStatus::Cancelled);
+    let renewed = env
+        .client
+        .send(&t.creds, ops::create_order(&order(&t, "tzr-1-2", Side::Buy, "5", OrderType::Lmt, Some("181"), None)))
+        .unwrap();
+    env.wait_status(&t, &renewed.order_id, NormalizedStatus::Working);
 }
 
 #[test]
-fn tradezero_old_order_filling_in_the_gap_rejects_the_replacement() {
-    let env = world();
-    let t = env.trader(OrderBroker::Tradezero);
+fn a_broker_that_reserves_shares_refuses_a_second_sell_for_them() {
+    let env = world_with(MockConfig { reserve_shares: true, ..MockConfig::default() });
+    let t = env.trader(OrderBroker::Tastytrade);
     env.price("AAPL", 190.0);
-    let o = env
+    let b = env
         .client
-        .send(&t.creds, ops::create_order(&order(&t, "gap-1", Side::Buy, "1", OrderType::Lmt, Some("180"), None)))
+        .send(&t.creds, ops::create_order(&order(&t, "rs-buy", Side::Buy, "10", OrderType::Mkt, None, None)))
         .unwrap();
-    env.wait_status(&t, &o.order_id, NormalizedStatus::Working);
-    let mut r = replace(&t, "gap-1-r");
-    r.order_limit_price = Some("170".into());
-    let n = env.client.send(&t.creds, ops::replace_order(&t.account_id, &o.order_id, &r)).unwrap();
-    env.price("AAPL", 179.0); // the old order fills before its cancel lands
-    env.wait_status(&t, &o.order_id, NormalizedStatus::Filled);
-    let rejected = env.wait_status(&t, &n.order_id, NormalizedStatus::Rejected);
-    assert!(rejected.broker_text.unwrap().contains("filled before"));
+    env.wait_status(&t, &b.order_id, NormalizedStatus::Filled);
+    env.client
+        .send(&t.creds, ops::create_order(&order(&t, "rs-stop", Side::Sell, "10", OrderType::Stp, None, Some("180"))))
+        .unwrap();
+    let e = env
+        .client
+        .send(&t.creds, ops::create_order(&order(&t, "rs-tp", Side::Sell, "10", OrderType::Lmt, Some("200"), None)))
+        .unwrap_err();
+    assert!(e.to_string().contains("INSUFFICIENT_SHARES"), "{e}");
 }
 
 #[test]

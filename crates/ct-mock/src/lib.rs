@@ -58,6 +58,10 @@ pub struct MockConfig {
     pub hard_to_borrow: Vec<String>,
     /// The window a broker's trading-call limit counts in: a minute at the brokers, shorter for a test.
     pub rate_window: Duration,
+    /// The broker counts working sells against the shares held: a sell for more than the long position less the
+    /// sells already working is refused (`400 INSUFFICIENT_SHARES`). Which brokers do is not known yet
+    /// (docs/connect-trade-answers.md); off by default. ASSUMPTION: the refusal's code and words.
+    pub reserve_shares: bool,
 }
 
 impl Default for MockConfig {
@@ -71,6 +75,7 @@ impl Default for MockConfig {
             tape: false,
             hard_to_borrow: Vec::new(),
             rate_window: Duration::from_secs(60),
+            reserve_shares: false,
         }
     }
 }
