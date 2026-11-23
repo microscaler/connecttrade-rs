@@ -28,7 +28,7 @@ http = { version = "0.2", optional = true }
 tungstenite = { version = "0.29", optional = true, default-features = false }
 sha1 = { version = "0.10", optional = true }
 data-encoding = { version = "2", optional = true }
-getrandom = { version = "0.3", optional = true }
+getrandom = { version = "0.4", optional = true }
 
 [dev-dependencies]
 ct-mock = { path = "../ct-mock" }
