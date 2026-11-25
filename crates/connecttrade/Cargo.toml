@@ -25,7 +25,7 @@ zeroize = "1"
 # Pinned by release tag. v0.1.15 adds HttpClient::upgrade (microscaler/may_minihttp#20); v0.1.16 RequestBuilder::stale_retry (#26).
 may_minihttp = { git = "https://github.com/microscaler/may_minihttp.git", tag = "v0.1.16", optional = true, features = ["client"] }
 http = { version = "0.2", optional = true }
-tungstenite = { version = "0.29", optional = true, default-features = false }
+tungstenite = { version = "0.30", optional = true, default-features = false }
 sha1 = { version = "0.11", optional = true }
 data-encoding = { version = "2", optional = true }
 getrandom = { version = "0.4", optional = true }
