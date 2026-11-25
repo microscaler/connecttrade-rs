@@ -240,7 +240,7 @@ version = "0.1.0"
 dependencies = [
  "ct-mock",
  "data-encoding",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "http 0.2.12",
  "may_minihttp",
  "serde",
